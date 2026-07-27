@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="티처블 머신 이미지 인식을 활용하여 Web Bluetooth를 통해 ESP32 LED를 실시간 제어하는 제미나이 캔버스 웹 애플리케이션">
+  <title>AI 모델학습(TM) 제미나이 캔버스 웹 앱</title>
+  
+  <!-- Tailwind CSS is avoided per core stack requirements. Vanilla CSS is loaded. -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- Embedding Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js" crossorigin="anonymous"></script>
+  <!-- ml5.js v0.12.2 CDN for Teachable Machine Support -->
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Security protocol warning banner -->
+    <div id="security-warning" class="warning-banner"></div>
+
+    <!-- Header Section -->
+    <header class="glass-panel" id="header-panel">
+      <div class="logo-section">
+        <h1>제미나이 캔버스 AIoT 컨트롤러</h1>
+        <p>Teachable Machine Class Classifier & Web BLE Interface</p>
+      </div>
+      
+      <div class="status-badges">
+        <!-- BLE Status Badge -->
+        <div id="ble-status-badge" class="badge pending">
+          <span class="badge-dot"></span>
+          <span>Bluetooth: </span>
+          <span class="badge-text">연결 대기 중</span>
+        </div>
+        
+        <!-- ML Model Status Badge -->
+        <div id="model-status-badge" class="badge pending">
+          <span class="badge-dot"></span>
+          <span>AI Model: </span>
+          <span class="badge-text">준비 대기 중</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Layout Grid -->
+    <main class="layout-grid">
+      
+      <!-- Left Column: Sticky Webcam Preview -->
+      <section class="left-column">
+        <div class="glass-panel camera-panel">
+          <div class="panel-title">실시간 카메라 스트림</div>
+          
+          <!-- p5.js canvas container -->
+          <div class="canvas-wrapper">
+            <div id="canvas-holder"></div>
+          </div>
+          
+          <!-- Camera hardware controls -->
+          <div class="camera-settings">
+            <div class="setting-row">
+              <label for="camera-select">입력 소스</label>
+              <select id="camera-select" onchange="changeCameraDevice(this.value)">
+                <option value="">자동 선택 (facingMode 우선)</option>
+              </select>
+            </div>
+            
+            <div class="form-row">
+              <button class="btn" onclick="toggleMirror()" id="mirror-btn">
+                <span>🔄 좌우 반전</span>
+              </button>
+              <button class="btn" onclick="switchCameraFacing()" id="switch-cam-btn">
+                <span>📷 전/후방 전환</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Control Panels -->
+      <section class="right-column">
+        
+        <!-- 1. Teachable Machine Model Loader -->
+        <div class="glass-panel">
+          <div class="panel-title">
+            티처블 머신 모델 불러오기
+            <span>URL 또는 짧은 ID 입력</span>
+          </div>
+          <div class="form-group">
+            <label for="model-url-input">모델 주소</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" id="model-url-input" placeholder="예: https://teachablemachine.withgoogle.com/models/v5x7Yp/" style="flex: 1;">
+              <button class="btn btn-primary" onclick="loadModel()">모델 로드</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Web Bluetooth Serial Controller -->
+        <div class="glass-panel">
+          <div class="panel-title">블루투스 제어판 (Web BLE)</div>
+          
+          <div class="form-row" style="margin-bottom: 1rem;">
+            <button class="btn btn-primary" id="ble-connect-btn" onclick="connectBLE()" style="width: 100%;">
+              <span>🔌 ESP32 기기 스캔 및 연결</span>
+            </button>
+            <button class="btn" id="ble-disconnect-btn" onclick="disconnectBLE()" style="width: 100%; display: none; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: HSL(0, 85%, 65%);">
+              <span>🛑 연결 해제</span>
+            </button>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-row">
+              <label for="ble-dedup-toggle">중복 데이터 송신 방지</label>
+              <label class="switch">
+                <input type="checkbox" id="ble-dedup-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="ble-interval-slider">송신 스로틀 주기</label>
+              <div class="slider-group">
+                <input type="range" id="ble-interval-slider" min="50" max="2000" step="50" value="300">
+                <span class="slider-val" id="ble-interval-val">300ms</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="ble-delimiter">종단 구분자 (Delimiter)</label>
+              <select id="ble-delimiter">
+                <option value="lf">줄 바꿈 (LF: \n)</option>
+                <option value="crlf">리턴+줄 바꿈 (CRLF: \r\n)</option>
+                <option value="none">구분자 없음</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Class Mapping Config Table -->
+        <div class="glass-panel">
+          <div class="panel-title">클래스 매핑 및 송신 값</div>
+          <div id="no-model-placeholder" class="no-model-placeholder">
+            모델 로드가 완료되면 인식 클래스별 설정 필드가 표시됩니다.
+          </div>
+          <table class="mapping-table">
+            <tbody id="mapping-rows">
+              <!-- Dynamically populated classes will appear here -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 4. Terminal Monitor -->
+        <div class="glass-panel terminal-panel">
+          <div class="terminal-header">
+            <label style="font-weight: 700; color: var(--text-primary);">실시간 로그 모니터</label>
+            <button class="btn" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="document.getElementById('terminal-log').innerHTML = ''">지우기</button>
+          </div>
+          <div class="terminal-box" id="terminal-log">
+            <div class="terminal-line sys"><span class="timestamp">[시스템]</span> AIoT 컨트롤러 서비스 시작 준비 완료.</div>
+          </div>
+        </div>
+
+        <!-- 5. MicroPython Guide Panel -->
+        <div class="glass-panel">
+          <div class="panel-title">ESP32 MicroPython 수신부 펌웨어</div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">
+            ESP32 보드에 아래 코드를 업로드하세요. 네오픽셀 LED(GPIO 14번 핀 연결, 4구)가 수신 값(<code style="color: var(--color-primary);">'1'</code>, <code style="color: var(--color-primary);">'2'</code>, <code style="color: var(--color-primary);">'abc'</code>, <code style="color: var(--color-primary);">'4'</code>)에 반응하여 색상을 제어합니다.
+          </div>
+          <div class="guide-code-container">
+            <button class="btn copy-btn" id="copy-code-btn" onclick="copyMicroPythonCode()">코드 복사</button>
+            <pre><code id="micropython-code"># ESP32 MicroPython - Web BLE UART Neopixel Controller
+import machine
+import neopixel
+import bluetooth
+import time
+
+# Nordic UART Service UUIDs (NUS)
+NUS_UUID = bluetooth.UUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
+TX_UUID = bluetooth.UUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e") # ESP32 -> Web
+RX_UUID = bluetooth.UUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e") # Web -> ESP32
+
+# NeoPixel Setup (GPIO 14, 4 LEDs)
+NUM_LEDS = 4
+np = neopixel.NeoPixel(machine.Pin(14), NUM_LEDS)
+
+def set_color(r, g, b):
+    for i in range(NUM_LEDS):
+        np[i] = (r, g, b)
+    np.write()
+
+# BLE Event Callback
+def ble_irq(event, data):
+    global conn_handle
+    if event == 1: # Central Connect
+        conn_handle = data[0]
+        print("연결 수립 성공")
+    elif event == 2: # Central Disconnect
+        conn_handle = None
+        print("연결 해제됨. 다시 스캔 대기 시작.")
+        advertise()
+    elif event == 3: # Central Write (Data received from client)
+        handle, = data
+        if handle == rx_handle:
+            raw_data = ble.gatts_read(rx_handle)
+            msg = raw_data.decode("utf-8").strip()
+            print("수신된 명령:", msg)
+            control_neopixel(msg)
+
+def control_neopixel(command):
+    if command == "1":
+        set_color(255, 0, 0)      # 빨강 (NeoPixel Red)
+    elif command == "2":
+        set_color(0, 255, 0)      # 초록 (NeoPixel Green)
+    elif command == "abc":
+        set_color(0, 0, 255)      # 파랑 (NeoPixel Blue)
+    elif command == "4":
+        set_color(255, 255, 255)  # 흰색 (NeoPixel White)
+    else:
+        set_color(0, 0, 0)        # 소등 (NeoPixel Off)
+
+# Initialize BLE
+ble = bluetooth.BLE()
+ble.active(True)
+ble.irq(ble_irq)
+
+# Service and Characteristics Setup
+TX_CHAR = (TX_UUID, bluetooth.FLAG_NOTIFY)
+RX_CHAR = (RX_UUID, bluetooth.FLAG_WRITE | bluetooth.FLAG_WRITE_NO_RESPONSE)
+UART_SERVICE = (NUS_UUID, (TX_CHAR, RX_CHAR))
+((tx_handle, rx_handle),) = ble.gatts_register_services((UART_SERVICE,))
+
+def advertise():
+    name = "ESP_LED_CTRL"
+    payload = bytearray(b"\x02\x01\x06") # Flags
+    payload += bytearray([len(name) + 1, 0x09]) + name.encode()
+    
+    # Advertise UART Service UUID (128-bit)
+    uuid_bytes = bytes(reversed(NUS_UUID.data))
+    payload += bytearray([17, 0x07]) + uuid_bytes
+    
+    ble.gap_advertise(100, payload)
+
+advertise()
+print("ESP32 BLE NeoPixel 가동 중...")
+while True:
+    time.sleep(1)</code></pre>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <p>© 2026 AIoT Teachable Machine Web BLE Controller. Created for Sandbox Environments.</p>
+    </footer>
+  </div>
+
+  <!-- Main logic runner script -->
+  <script src="app.js"></script>
+</body>
+</html>

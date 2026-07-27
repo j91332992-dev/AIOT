@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>LEE JEONGUN's Smart Lamp Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Google Fonts & Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#fffbff",
+                        "primary-fixed": "#ffdcc3",
+                        "inverse-on-surface": "#f5f0e8",
+                        "surface-container-highest": "#e7e2da",
+                        "on-secondary-fixed-variant": "#76330d",
+                        "outline": "#887364",
+                        "on-tertiary-container": "#464021",
+                        "surface-bright": "#fef9f1",
+                        "tertiary": "#665f3d",
+                        "secondary-container": "#fd9e70", // Sunset Orange Accent
+                        "surface-dim": "#ded9d2",
+                        "on-surface": "#1d1c17",
+                        "on-primary-fixed": "#2f1500",
+                        "on-secondary-fixed": "#351000",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#554336",
+                        "secondary-fixed": "#ffdbcc",
+                        "surface-variant": "#e7e2da",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#dbc2b0",
+                        "on-secondary-container": "#76340e",
+                        "surface-tint": "#904d00",
+                        "surface-container": "#f2ede5",
+                        "on-primary-fixed-variant": "#6e3900",
+                        "primary-fixed-dim": "#ffb77d",
+                        "background": "#fef9f1",
+                        "surface": "#fef9f1",
+                        "inverse-primary": "#ffb77d",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#b5ac84",
+                        "on-error-container": "#93000a",
+                        "surface-container-high": "#ece8e0",
+                        "on-tertiary-fixed": "#201c02",
+                        "tertiary-fixed": "#ede3b8",
+                        "inverse-surface": "#32302b",
+                        "error": "#ba1a1a",
+                        "on-background": "#1d1c17",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#ffb693",
+                        "on-tertiary-fixed-variant": "#4d4727",
+                        "tertiary-fixed-dim": "#d1c79d",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f8f3eb",
+                        "on-error": "#ffffff",
+                        "primary-container": "#b15f00",
+                        "primary": "#8d4b00", // Warm Amber
+                        "secondary": "#944a23"
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background: linear-gradient(165deg, #2b4c8c 0%, #3e8894 60%, #58b9bb 100%);
+            -webkit-tap-highlight-color: transparent;
+            color: white;
+            min-height: 100vh;
+        }
+        .glass {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .card-glass {
+            background: rgba(23, 37, 56, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .terminal-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .terminal-scroll::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        .terminal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        /* Circular Gauge SVG classes */
+        .gauge-svg {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+        .gauge-track {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 8;
+        }
+        .gauge-fill {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.8s ease;
+        }
+        .gauge-temp { stroke: url(#tempGradient); }
+        .gauge-humi { stroke: url(#humiGradient); }
+        .gauge-cds { stroke: url(#cdsGradient); }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        .status-dot.connecting {
+            background-color: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+            animation: pulse-amber 1.5s infinite;
+        }
+        .status-dot.connected {
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse-green 1.5s infinite;
+        }
+        .status-dot.simulating {
+            background-color: #fd9e70;
+            box-shadow: 0 0 8px #fd9e70;
+            animation: pulse-orange 1.5s infinite;
+        }
+
+        @keyframes pulse-amber {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @keyframes pulse-orange {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(253, 158, 112, 0.4); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(253, 158, 112, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(253, 158, 112, 0); }
+        }
+
+        /* Pochacco bounce animation */
+        .pochacco-pixel {
+            display: none;
+            width: 44px;
+            height: 44px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' width='100%25' height='100%25' style='image-rendering:pixelated'%3E%3Cpath d='M6 1h4v1H6zm-2 2h2v1H4zm8 0h2v1h-2zm-3 2h2v1H9zm-4 1h2v1H5zm6 0h2v1h-2zM4 9h2v1H4zm6 0h2v1h-2zM5 12h6v1H5zm-1 2h8v1H4z' fill='%2300ccff'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 0 4px #0cf);
+            animation: bounce 1.5s infinite alternate ease-in-out;
+        }
+        @keyframes bounce {
+            0% { transform: translateY(2px); }
+            100% { transform: translateY(-4px); }
+        }
+        
+        /* Nav transition indicators */
+        .view-content {
+            display: none;
+        }
+        .view-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="font-body-md selection:bg-primary/20">
+
+    <!-- SVG Gradients definitions for gauges -->
+    <svg style="width:0;height:0;position:absolute;" aria-hidden="true" focusable="false">
+        <linearGradient id="tempGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fd9e70" />
+            <stop offset="100%" stop-color="#ef4444" />
+        </linearGradient>
+        <linearGradient id="humiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38bdf8" />
+            <stop offset="100%" stop-color="#2563eb" />
+        </linearGradient>
+        <linearGradient id="cdsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fef08a" />
+            <stop offset="100%" stop-color="#eab308" />
+        </linearGradient>
+    </svg>
+
+    <!-- Bluetooth Connection Overlay -->
+    <div class="fixed inset-0 z-[100] flex items-center justify-center p-6 transition-all duration-500 glass bg-black/60" id="connection-overlay">
+        <div class="bg-[#1a2b40] p-10 rounded-[32px] shadow-2xl max-w-sm w-full text-center space-y-8 border border-white/10">
+            <div class="relative inline-flex justify-center items-center">
+                <div class="absolute w-24 h-24 bg-primary/20 rounded-full animate-ping scale-150 opacity-30"></div>
+                <div class="bg-primary/20 p-8 rounded-full">
+                    <span class="material-symbols-outlined text-secondary-container text-6xl" style="font-variation-settings: 'FILL' 1;">bluetooth_searching</span>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <h2 class="text-2xl font-bold text-white tracking-tight">스마트 램프 연결</h2>
+                <p class="text-white/60 text-sm px-4">블루투스를 켜고 근처의 스마트홈 기기(<span class="font-bold text-secondary-container">BLE_LJU</span>)를 탐색하여 안전하게 연동해 주세요.</p>
+            </div>
+            <div class="space-y-3">
+                <button class="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg shadow-lg hover:brightness-110 active:scale-[0.97] transition-all" onclick="connectBLE()">
+                    블루투스 스캔 시작
+                </button>
+                <button class="text-white/40 hover:text-white text-xs underline block mx-auto font-medium" onclick="startSimulation()">
+                    가상 데모 모드 (기기 없이 테스트)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <main class="max-w-[480px] mx-auto min-h-screen relative flex flex-col pb-32">
+        
+        <!-- Top Nav Header -->
+        <header class="flex justify-between items-center px-6 pt-12 pb-6">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-2xl text-white/90">widgets</span>
+                <div class="flex flex-col">
+                    <span class="font-bold text-lg tracking-tight">JEONGUN's Lamp</span>
+                    <span class="text-[10px] text-white/50 font-medium uppercase tracking-wider">BLE NUS Controller</span>
+                </div>
+            </div>
+            
+            <div id="status-badge" class="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-black/30 transition-all" onclick="disconnectBLE()">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text" class="text-[10px] uppercase font-bold tracking-widest text-white/80">연결 없음</span>
+            </div>
+        </header>
+
+        <!-- Simulation mode bar -->
+        <div id="sim-banner" class="hidden mx-6 mb-6 items-center justify-between p-4 rounded-2xl bg-[#fd9e70]/10 border border-[#fd9e70]/30 text-[#fd9e70] text-xs font-semibold">
+            <span>⚠️ 가상 데모 모드로 작동 중입니다.</span>
+            <button class="underline hover:text-white" onclick="stopSimulation()">기기 연결하기</button>
+        </div>
+
+        <!-- ================= TAB 1: CONTROL VIEW ================= -->
+        <div id="view-control" class="view-content active px-6 space-y-6">
+            
+            <!-- Welcome Recommendation -->
+            <div class="space-y-1">
+                <p class="text-xs font-bold text-white/50 uppercase tracking-widest">System Status</p>
+                <h1 class="text-xl font-bold leading-snug text-white/95">
+                    모든 기기와 센서가 활성화되었습니다. 하단 탭을 통해 상세 제어 및 로그 관찰이 가능합니다.
+                </h1>
+            </div>
+
+            <!-- Auto-refresh & monitoring toggle -->
+            <div class="card-glass p-5 rounded-[24px] flex justify-between items-center">
+                <div class="flex items-center gap-3 text-white/90">
+                    <span class="material-symbols-outlined text-secondary-container">sync_alt</span>
+                    <span class="text-sm font-bold">실시간 센서 자동 스캔 (5초 주기)</span>
+                </div>
+                <!-- Custom Switch -->
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="auto-refresh-checkbox" class="sr-only peer" onchange="toggleAutoRefresh(this)">
+                    <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/80 after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+                </label>
+            </div>
+
+            <!-- Sensors Grid Layout -->
+            <div class="grid grid-cols-2 gap-4">
+                
+                <!-- Temp Gauge Card -->
+                <div class="card-glass p-5 rounded-[24px] flex flex-col items-center text-center space-y-3 relative group">
+                    <div class="flex items-center gap-2 text-white/60">
+                        <span class="material-symbols-outlined text-lg text-[#fd9e70]">thermostat</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider">실내 온도</span>
+                    </div>
+                    
+                    <!-- SVG Gauge -->
+                    <div class="relative w-24 h-24 my-2">
+                        <svg class="gauge-svg">
+                            <circle class="gauge-track" cx="48" cy="48" r="40"></circle>
+                            <circle id="gauge-temp-fill" class="gauge-fill gauge-temp" cx="48" cy="48" r="40" stroke-dasharray="0 251"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col justify-center items-center">
+                            <span id="temp-value" class="font-mono text-2xl font-bold text-white tracking-tight">--</span>
+                            <span class="text-[9px] text-white/40 font-bold uppercase">°C</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Humi Gauge Card -->
+                <div class="card-glass p-5 rounded-[24px] flex flex-col items-center text-center space-y-3 relative group">
+                    <div class="flex items-center gap-2 text-white/60">
+                        <span class="material-symbols-outlined text-lg text-blue-400">humidity_mid</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider">실내 습도</span>
+                    </div>
+                    
+                    <!-- SVG Gauge -->
+                    <div class="relative w-24 h-24 my-2">
+                        <svg class="gauge-svg">
+                            <circle class="gauge-track" cx="48" cy="48" r="40"></circle>
+                            <circle id="gauge-humi-fill" class="gauge-fill gauge-humi" cx="48" cy="48" r="40" stroke-dasharray="0 251"></circle>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col justify-center items-center">
+                            <span id="humi-value" class="font-mono text-2xl font-bold text-white tracking-tight">--</span>
+                            <span class="text-[9px] text-white/40 font-bold uppercase">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ambient Light (CdS) Card (Wide Layout) -->
+            <div class="card-glass p-5 rounded-[24px] space-y-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2 text-white/60">
+                        <span class="material-symbols-outlined text-lg text-yellow-300">wb_sunny</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider">조도 센서 감지 (CdS)</span>
+                    </div>
+                    
+                    <button id="refresh-sensors" class="p-2 bg-white/5 hover:bg-white/10 active:scale-95 rounded-full border border-white/5 transition-all" onclick="requestAllSensors()">
+                        <span class="material-symbols-outlined text-sm block">refresh</span>
+                    </button>
+                </div>
+                
+                <div class="flex justify-between items-center px-2">
+                    <div class="space-y-1">
+                        <div class="font-mono text-3xl font-extrabold text-white tracking-tight">
+                            <span id="cds-value">----</span>
+                            <span class="text-[10px] text-white/40 font-bold">ADC</span>
+                        </div>
+                        <div id="cds-desc" class="inline-block px-3 py-1 rounded-full text-[9px] font-bold tracking-wider bg-white/10 text-white/60 border border-white/5">
+                            조회 대기 중
+                        </div>
+                    </div>
+                    
+                    <!-- Glow Bulb Icon -->
+                    <div id="cds-bulb" class="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex justify-center items-center transition-all duration-500">
+                        <span class="material-symbols-outlined text-3xl text-white/40">lightbulb</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RGB LED Lamp Controller (Glass panel style) -->
+            <div class="card-glass p-5 rounded-[24px] flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div id="lamp-preview" class="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex justify-center items-center relative transition-all">
+                        <span class="material-symbols-outlined text-2xl text-white/40">lightbulb</span>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">메인 RGB LED 전등</div>
+                        <div class="text-[10px] text-white/40 font-semibold tracking-wider uppercase mt-0.5">Command '7' / '8'</div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-5 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-xs font-bold rounded-xl border border-white/10 transition-all" onclick="sendCommand('7')">켜기</button>
+                    <button class="px-5 py-2.5 bg-white/5 hover:bg-white/15 active:scale-95 text-xs font-bold rounded-xl border border-white/5 transition-all" onclick="sendCommand('8')">끄기</button>
+                </div>
+            </div>
+
+            <!-- Other Actuators Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                
+                <!-- LCD Backlight Switch -->
+                <div class="card-glass p-5 rounded-[24px] flex flex-col justify-between space-y-4">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-bold text-white/60">LCD 백라이트</span>
+                        <div class="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex justify-center items-center">
+                            <span class="material-symbols-outlined text-sm text-white/50">tv</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center bg-black/20 p-2.5 rounded-xl border border-white/5">
+                        <span class="text-[9px] font-bold text-white/40 uppercase">Backlight</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="lcd-toggle" class="sr-only peer" onchange="toggleLCD(this)">
+                            <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/80 after:border-rounded-full after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary-container"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Buzzer Melodies -->
+                <div class="card-glass p-5 rounded-[24px] flex flex-col justify-between space-y-4">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-bold text-white/60">부저 멜로디 재생</span>
+                        <div class="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex justify-center items-center">
+                            <span class="material-symbols-outlined text-sm text-white/50">volume_up</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <button class="w-full py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-[10px] font-bold rounded-lg border border-white/10 transition-all" onclick="sendCommand('5')">🎵 학교종</button>
+                        <button class="w-full py-2 bg-white/5 hover:bg-white/15 active:scale-95 text-[10px] font-bold rounded-lg border border-white/5 transition-all" onclick="sendCommand('6')">🌟 작은별</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OLED Display Mockup Panel -->
+            <div class="card-glass p-5 rounded-[24px] space-y-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2 text-white/60">
+                        <span class="material-symbols-outlined text-lg text-white/50">monitor</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider">SSD1306 OLED 디스플레이</span>
+                    </div>
+                    <button class="px-4 py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-[10px] font-bold rounded-xl border border-white/10 transition-all" onclick="sendCommand('9')">포차코 출력 ('9')</button>
+                </div>
+                <div class="w-full h-24 bg-black rounded-2xl flex justify-center items-center overflow-hidden border border-white/10 relative shadow-inner">
+                    <div class="flex flex-col justify-center items-center">
+                        <div id="oled-placeholder-text" class="text-[10px] text-white/30 font-bold uppercase tracking-widest font-mono">DISPLAY OFF</div>
+                        <div id="pochacco-img" class="pochacco-pixel"></div>
+                        <div id="oled-caption" class="text-[8px] text-[#00ccff] font-bold font-mono tracking-widest mt-1 hidden" style="text-shadow: 0 0 4px #00ccff;">pochacca.pbm</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= TAB 2: LOGS VIEW ================= -->
+        <div id="view-logs" class="view-content px-6 space-y-6">
+            
+            <div class="flex flex-col h-[400px] bg-black/30 rounded-[28px] border border-white/10 p-5 shadow-2xl relative">
+                <div class="flex justify-between items-center pb-4 border-bottom border-white/5 mb-4 border-b">
+                    <div class="flex gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#10b981]"></div>
+                    </div>
+                    <span class="font-mono text-[10px] font-bold text-white/50 tracking-wider">SERIAL MONITOR (TX/RX)</span>
+                    <button class="text-[9px] font-bold tracking-widest bg-white/10 px-2 py-1 rounded hover:bg-white/20 transition-all" onclick="clearLogs()">CLEAR</button>
+                </div>
+                
+                <div id="terminal-body" class="flex-grow overflow-y-auto font-mono text-[10px] leading-relaxed text-white/80 pr-2 terminal-scroll space-y-2">
+                    <div class="log-entry">
+                        <span class="log-time text-white/30">[12:00:00]</span>
+                        <span class="log-dir sys text-[#fd9e70] font-bold">[SYS]</span>
+                        <span>대시보드가 준비되었습니다. 블루투스를 연결해 주세요.</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-glass p-5 rounded-[24px] space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-widest text-[#fd9e70]">블루투스 통신 정보</h3>
+                <div class="text-[10px] text-white/50 space-y-1.5 leading-relaxed font-mono">
+                    <div>• Service UUID: <span class="text-white">6e400001-...-e50e24dcca9e</span></div>
+                    <div>• RX (Write): <span class="text-white">...0002... (Commands)</span></div>
+                    <div>• TX (Notify): <span class="text-white">...0003... (Sensors)</span></div>
+                    <div>• 스캔 기기명: <span class="text-secondary-container">BLE_LJU</span> 및 <span class="text-secondary-container">ESP_</span> 접두사</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: HARDWARE INFO VIEW ================= -->
+        <div id="view-info" class="view-content px-6 space-y-6">
+            <div class="card-glass p-5 rounded-[28px] overflow-hidden">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-secondary-container mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">developer_board</span>
+                    ESP32 하드웨어 결선 맵
+                </h3>
+                
+                <div class="overflow-x-auto hide-scrollbar">
+                    <table class="w-full text-left text-[10px] border-collapse">
+                        <thead>
+                            <tr class="border-b border-white/10 text-white/50 font-bold">
+                                <th class="py-2.5 pr-2">장치</th>
+                                <th class="py-2.5 px-2">모델명</th>
+                                <th class="py-2.5 px-2">ESP32 핀</th>
+                                <th class="py-2.5 pl-2">입출력</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5 text-white/80">
+                            <tr>
+                                <td class="py-2.5 pr-2">터치센서 1~4</td>
+                                <td class="py-2.5 px-2">TTP223</td>
+                                <td class="py-2.5 px-2 font-mono">D33, 32, 35, 34</td>
+                                <td class="py-2.5 pl-2">디지털 입력</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">RGB LED (R/G/B)</td>
+                                <td class="py-2.5 px-2">Common Cathode</td>
+                                <td class="py-2.5 px-2 font-mono">D25, D26, D27</td>
+                                <td class="py-2.5 pl-2">PWM 출력</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">조도 센서 (CdS)</td>
+                                <td class="py-2.5 px-2">황화카드뮴 셀</td>
+                                <td class="py-2.5 px-2 font-mono">D36 (ADC1)</td>
+                                <td class="py-2.5 pl-2">아날로그 입력</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">서보 모터</td>
+                                <td class="py-2.5 px-2">SG90 Micro</td>
+                                <td class="py-2.5 px-2 font-mono">D13</td>
+                                <td class="py-2.5 pl-2">PWM 제어</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">온습도 센서</td>
+                                <td class="py-2.5 px-2">DHT11 Digital</td>
+                                <td class="py-2.5 px-2 font-mono">D14</td>
+                                <td class="py-2.5 pl-2">1-Wire 디지털</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">피에조 부저</td>
+                                <td class="py-2.5 px-2">패시브 부저</td>
+                                <td class="py-2.5 px-2 font-mono">D23</td>
+                                <td class="py-2.5 pl-2">PWM 주파수</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2.5 pr-2">I2C 디스플레이</td>
+                                <td class="py-2.5 px-2">LCD & OLED</td>
+                                <td class="py-2.5 px-2 font-mono">SDA: D21 / SCL: D22</td>
+                                <td class="py-2.5 pl-2">I2C 버스</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card-glass p-5 rounded-[28px] space-y-3">
+                <h3 class="text-sm font-bold uppercase tracking-widest text-[#fd9e70] flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">rule</span>
+                    스마트 제어 및 터치 작동 원리
+                </h3>
+                <div class="text-[11px] text-white/60 space-y-2 leading-relaxed">
+                    <div>
+                        <strong>1. 조도 임계 자동 스위칭</strong><br>
+                        조도 센서 측정값이 <code class="bg-black/20 px-1 py-0.5 rounded text-white font-mono">2000</code>을 초과(주변이 어두워짐)할 경우, 멜로디 연주와 함께 서보모터 창문이 <code class="bg-black/20 px-1 py-0.5 rounded text-white font-mono">180도</code>로 닫힙니다. 다시 밝아지면 <code class="bg-black/20 px-1 py-0.5 rounded text-white font-mono">90도</code>로 열리게 됩니다.
+                    </div>
+                    <div>
+                        <strong>2. 정전식 터치 핀 제어</strong><br>
+                        터치 1(빨강), 터치 2(빨강+초록), 터치 3(빨강+파랑)의 조합 점등을 지원하며, 터치 4번을 감지하면 즉시 LED를 소등합니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Glassmorphic Bottom Navigation Bar -->
+        <nav class="fixed bottom-0 left-0 right-0 w-full max-w-[480px] mx-auto z-50 flex justify-around items-center py-6 px-8 bg-[#0d1624]/95 backdrop-blur-3xl border-t border-white/5 shadow-2xl rounded-t-[40px]">
+            
+            <button id="nav-control" class="flex flex-col items-center justify-center text-secondary-container relative group nav-item active" onclick="switchTab('control')">
+                <span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">home</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest mt-1">제어 홈</span>
+            </button>
+            
+            <button id="nav-logs" class="flex flex-col items-center justify-center text-white/40 transition-all hover:text-white group nav-item" onclick="switchTab('logs')">
+                <span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">terminal</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest mt-1">시리얼 로그</span>
+            </button>
+            
+            <button id="nav-info" class="flex flex-col items-center justify-center text-white/40 transition-all hover:text-white group nav-item" onclick="switchTab('info')">
+                <span class="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">developer_board</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest mt-1">핀맵 안내</span>
+            </button>
+        </nav>
+        
+    </main>
+
+    <script>
+        // BLE NUS Constants
+        const NUS_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const NUS_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        const NUS_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+        // App States
+        let bleDevice = null;
+        let rxCharacteristic = null;
+        let txCharacteristic = null;
+        let rxBuffer = "";
+        let isSimulation = false;
+        let autoRefreshTimer = null;
+
+        // Logging utility
+        function log(message, direction = 'sys') {
+            const terminal = document.getElementById('terminal-body');
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry flex gap-3 text-[9px]';
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'log-time opacity-30 flex-shrink-0';
+            timeSpan.innerText = `[${timeStr}]`;
+            
+            const dirSpan = document.createElement('span');
+            let colorClass = 'text-white/40';
+            if (direction.toLowerCase() === 'tx') colorClass = 'text-[#ffdcc3]';
+            if (direction.toLowerCase() === 'rx') colorClass = 'text-[#fd9e70]';
+            if (direction.toLowerCase() === 'sys') colorClass = 'text-white/90';
+            
+            dirSpan.className = `log-dir font-bold w-6 flex-shrink-0 opacity-60 ${colorClass}`;
+            dirSpan.innerText = direction.toUpperCase();
+            
+            const textSpan = document.createElement('span');
+            textSpan.className = colorClass;
+            textSpan.innerText = message;
+            
+            entry.appendChild(timeSpan);
+            entry.appendChild(dirSpan);
+            entry.appendChild(textSpan);
+            
+            terminal.appendChild(entry);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearLogs() {
+            const terminal = document.getElementById('terminal-body');
+            terminal.innerHTML = '<div class="text-white/20 italic text-[9px]">-- Log Wiped --</div>';
+            log('로그가 비워졌습니다.', 'sys');
+        }
+
+        // Web Bluetooth Connection Flow
+        async function connectBLE() {
+            if (isSimulation) stopSimulation();
+            
+            updateStatus('connecting');
+            log('BLE 기기 탐색 중... (서비스 UUID 필터 활성화)', 'sys');
+
+            try {
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { services: [NUS_SERVICE_UUID] },
+                        { name: 'BLE_LJU' },
+                        { namePrefix: 'ESP_' },
+                        { namePrefix: 'BLE_' }
+                    ],
+                    optionalServices: [NUS_SERVICE_UUID]
+                });
+
+                log(`기기 선택됨: ${bleDevice.name}`, 'sys');
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                log('GATT 서버 연결 중...', 'sys');
+                const server = await bleDevice.gatt.connect();
+
+                log('Primary Service 탐색 중...', 'sys');
+                const service = await server.getPrimaryService(NUS_SERVICE_UUID);
+
+                log('송수신 캐릭터리스틱 획득 중...', 'sys');
+                rxCharacteristic = await service.getCharacteristic(NUS_RX_UUID);
+                txCharacteristic = await service.getCharacteristic(NUS_TX_UUID);
+
+                log('알림(Notification) 시작...', 'sys');
+                await txCharacteristic.startNotifications();
+                txCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
+
+                updateStatus('connected');
+                
+                // Hide overlay with animation
+                const overlay = document.getElementById('connection-overlay');
+                overlay.style.opacity = '0';
+                overlay.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 500);
+                
+                log('스마트홈 기기 연결 완료! 통신 준비 완료.', 'sys');
+                
+                // Read sensors initially
+                requestAllSensors();
+
+            } catch (error) {
+                log(`에러 발생: ${error.message}`, 'sys');
+                updateStatus('disconnected');
+                alert(`연결할 수 없습니다. \n이유: ${error.message}\n\n*주의: HTTPS 보안 프로토콜 혹은 localhost가 아닐 경우 Web Bluetooth 통신이 작동하지 않습니다. 모바일은 안드로이드 Chrome 또는 iOS Bluefy 앱을 사용하십시오.`);
+            }
+        }
+
+        function disconnectBLE() {
+            if (bleDevice && bleDevice.gatt.connected) {
+                log('블루투스 연결 수동 해제 중...', 'sys');
+                bleDevice.gatt.disconnect();
+            } else if (isSimulation) {
+                stopSimulation();
+            }
+        }
+
+        function onDisconnected() {
+            log('블루투스 연결이 유실되었습니다.', 'sys');
+            updateStatus('disconnected');
+            
+            const overlay = document.getElementById('connection-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                overlay.style.transform = 'scale(1)';
+            }, 50);
+            
+            toggleAutoRefreshCheckbox(false);
+        }
+
+        function updateStatus(state) {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const badge = document.getElementById('status-badge');
+            
+            // Clean classes
+            statusDot.className = 'status-dot';
+            badge.className = 'flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full border border-white/5 cursor-pointer hover:bg-black/30 transition-all';
+            
+            if (state === 'connected') {
+                statusDot.classList.add('connected');
+                statusText.innerText = bleDevice ? bleDevice.name : '연결됨';
+                statusText.className = 'text-[10px] uppercase font-bold tracking-widest text-[#fd9e70]';
+                badge.classList.add('border-[#fd9e70]/20');
+            } else if (state === 'connecting') {
+                statusDot.classList.add('connecting');
+                statusText.innerText = '연결 중...';
+                statusText.className = 'text-[10px] uppercase font-bold tracking-widest text-yellow-400';
+            } else if (state === 'simulating') {
+                statusDot.classList.add('simulating');
+                statusText.innerText = '데모 작동';
+                statusText.className = 'text-[10px] uppercase font-bold tracking-widest text-[#fd9e70]';
+                badge.classList.add('border-[#fd9e70]/20');
+            } else {
+                statusText.innerText = '연결 없음';
+                statusText.className = 'text-[10px] uppercase font-bold tracking-widest text-white/50';
+            }
+        }
+
+        // Send Command to ESP32
+        async function sendCommand(char) {
+            if (isSimulation) {
+                log(`명령어 송신: '${char}'`, 'tx');
+                simulateRx(char);
+                updateActuatorUIMockup(char);
+                return;
+            }
+
+            if (!rxCharacteristic) {
+                log('오류: 연결된 블루투스 장치가 없습니다.', 'sys');
+                return;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(char);
+                await rxCharacteristic.writeValue(data);
+                log(`명령어 송신: '${char}'`, 'tx');
+                updateActuatorUIMockup(char);
+            } catch (error) {
+                log(`명령어 송신 실패: ${error.message}`, 'sys');
+            }
+        }
+
+        // Handle incoming notifications (ESP32 -> Web)
+        function handleNotification(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const text = decoder.decode(value);
+            
+            rxBuffer += text;
+            
+            let newlineIndex;
+            while ((newlineIndex = rxBuffer.indexOf('\n')) !== -1) {
+                const line = rxBuffer.substring(0, newlineIndex).trim();
+                rxBuffer = rxBuffer.substring(newlineIndex + 1);
+                if (line) {
+                    log(line, 'rx');
+                    parseIncomingData(line);
+                }
+            }
+        }
+
+        // Parse sensor values
+        function parseIncomingData(line) {
+            if (line.includes('temp')) {
+                const match = line.match(/temp\s*:\s*(\d+)/);
+                if (match) {
+                    const temp = parseInt(match[1]);
+                    document.getElementById('temp-value').innerText = temp;
+                    updateGauge('temp', temp, 50); // Max temp 50
+                }
+            } else if (line.includes('humi')) {
+                const match = line.match(/humi\s*:\s*(\d+)/);
+                if (match) {
+                    const humi = parseInt(match[1]);
+                    document.getElementById('humi-value').innerText = humi;
+                    updateGauge('humi', humi, 100); // Max humi 100
+                }
+            } else if (/^\d+$/.test(line)) {
+                const cdsVal = parseInt(line);
+                document.getElementById('cds-value').innerText = cdsVal;
+                updateCdsUI(cdsVal);
+            }
+        }
+
+        // Update radial gauge stroke-dasharray
+        function updateGauge(type, value, max) {
+            const fill = document.getElementById(`gauge-${type}-fill`);
+            if (!fill) return;
+            const circumference = 251; // 2 * pi * r (r=40)
+            const percentage = Math.min(Math.max(value / max, 0), 1);
+            const strokeVal = percentage * circumference;
+            fill.style.strokeDasharray = `${strokeVal} ${circumference}`;
+        }
+
+        // Update CdS specific UI and light bulb status
+        function updateCdsUI(val) {
+            const cdsDesc = document.getElementById('cds-desc');
+            const cdsBulb = document.getElementById('cds-bulb');
+            
+            const darkThreshold = 2000;
+            
+            // Calculate a raw brightness metric for gauge circle (lower ADC value = brighter)
+            const brightnessPercent = Math.round(((4095 - val) / 4095) * 100);
+            updateGauge('cds', brightnessPercent, 100);
+
+            if (val > darkThreshold) {
+                cdsDesc.innerText = '어두움 (Dark)';
+                cdsDesc.className = 'inline-block px-3 py-1 rounded-full text-[9px] font-bold tracking-wider bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20';
+                
+                cdsBulb.className = 'w-16 h-16 rounded-full bg-black/20 border border-white/5 flex justify-center items-center transition-all duration-500';
+                cdsBulb.querySelector('span').className = 'material-symbols-outlined text-3xl text-white/30';
+            } else {
+                cdsDesc.innerText = '밝음 (Bright)';
+                cdsDesc.className = 'inline-block px-3 py-1 rounded-full text-[9px] font-bold tracking-wider bg-yellow-400/10 text-yellow-400 border border-yellow-400/20';
+                
+                cdsBulb.className = 'w-16 h-16 rounded-full bg-yellow-400/20 border border-yellow-400/40 flex justify-center items-center transition-all duration-500 shadow-[0_0_20px_rgba(250,204,21,0.2)]';
+                cdsBulb.querySelector('span').className = 'material-symbols-outlined text-3xl text-yellow-300';
+                cdsBulb.querySelector('span').style.filter = 'drop-shadow(0 0 6px rgba(250,204,21,0.6))';
+            }
+        }
+
+        // Mock state updates on actuators for visual immersion
+        function updateActuatorUIMockup(char) {
+            if (char === '7') {
+                const preview = document.getElementById('lamp-preview');
+                preview.className = 'w-14 h-14 bg-yellow-400/20 border border-yellow-400/40 rounded-2xl flex justify-center items-center relative transition-all shadow-[0_0_15px_rgba(250,204,21,0.3)]';
+                preview.querySelector('span').className = 'material-symbols-outlined text-2xl text-yellow-300';
+            } else if (char === '8') {
+                const preview = document.getElementById('lamp-preview');
+                preview.className = 'w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex justify-center items-center relative transition-all';
+                preview.querySelector('span').className = 'material-symbols-outlined text-2xl text-white/40';
+            } else if (char === '3') {
+                document.getElementById('lcd-toggle').checked = true;
+            } else if (char === '4') {
+                document.getElementById('lcd-toggle').checked = false;
+            } else if (char === '9') {
+                // Show Pochacco mock OLED character
+                document.getElementById('oled-placeholder-text').style.display = 'none';
+                document.getElementById('pochacco-img').style.display = 'block';
+                document.getElementById('oled-caption').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('pochacco-img').style.display = 'none';
+                    document.getElementById('oled-caption').style.display = 'none';
+                    document.getElementById('oled-placeholder-text').style.display = 'block';
+                }, 8000);
+            }
+        }
+
+        // LCD Switch Controller
+        function toggleLCD(checkbox) {
+            if (checkbox.checked) {
+                sendCommand('3');
+            } else {
+                sendCommand('4');
+            }
+        }
+
+        // Request reading of all sensors manually
+        function requestAllSensors() {
+            const btn = document.getElementById('refresh-sensors');
+            btn.classList.add('animate-spin');
+            
+            sendCommand('1');
+            setTimeout(() => {
+                sendCommand('2');
+                btn.classList.remove('animate-spin');
+            }, 1000);
+        }
+
+        // Auto Monitoring Loop
+        function toggleAutoRefresh(checkbox) {
+            if (checkbox.checked) {
+                log('자동 모니터링 활성화 (5초 주기)', 'sys');
+                autoRefreshTimer = setInterval(() => {
+                    requestAllSensors();
+                }, 5000);
+            } else {
+                log('자동 모니터링 비활성화', 'sys');
+                if (autoRefreshTimer) {
+                    clearInterval(autoRefreshTimer);
+                    autoRefreshTimer = null;
+                }
+            }
+        }
+
+        function toggleAutoRefreshCheckbox(state) {
+            const cb = document.getElementById('auto-refresh-checkbox');
+            cb.checked = state;
+            toggleAutoRefresh(cb);
+        }
+
+        // Simulation Mode (Mock data generation)
+        function startSimulation() {
+            isSimulation = true;
+            
+            const overlay = document.getElementById('connection-overlay');
+            overlay.style.opacity = '0';
+            overlay.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 500);
+
+            document.getElementById('sim-banner').style.display = 'flex';
+            updateStatus('simulating');
+            log('데모 모드 시동 완료. 가상 장치 제어가 가능합니다.', 'sys');
+            
+            // Inject initial virtual data
+            setTimeout(() => {
+                simulateRx('1');
+                simulateRx('2');
+            }, 800);
+        }
+
+        function stopSimulation() {
+            isSimulation = false;
+            document.getElementById('sim-banner').style.display = 'none';
+            
+            const overlay = document.getElementById('connection-overlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                overlay.style.transform = 'scale(1)';
+            }, 50);
+
+            updateStatus('disconnected');
+            toggleAutoRefreshCheckbox(false);
+            log('데모 모드가 종료되었습니다.', 'sys');
+        }
+
+        function simulateRx(char) {
+            setTimeout(() => {
+                if (!isSimulation) return;
+                
+                if (char === '1') {
+                    // Random temperature between 22 and 27
+                    const t = Math.floor(Math.random() * 6) + 22;
+                    // Random humidity between 40 and 65
+                    const h = Math.floor(Math.random() * 26) + 40;
+                    
+                    const tMsg = `temp : ${t}`;
+                    const hMsg = `humi : ${h}`;
+                    
+                    log(tMsg, 'rx');
+                    parseIncomingData(tMsg);
+                    
+                    setTimeout(() => {
+                        log(hMsg, 'rx');
+                        parseIncomingData(hMsg);
+                    }, 100);
+                } else if (char === '2') {
+                    // Random CdS ADC value (0 - 4095)
+                    const val = Math.floor(Math.random() * 4095);
+                    const msg = `${val}`;
+                    log(msg, 'rx');
+                    parseIncomingData(msg);
+                }
+            }, 500);
+        }
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            // Deactivate all tabs & buttons
+            document.querySelectorAll('.view-content').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('active');
+                btn.classList.remove('text-secondary-container');
+                btn.classList.add('text-white/40');
+                // Remove indicator dot if exists
+                const dot = btn.querySelector('div');
+                if (dot) dot.remove();
+            });
+
+            // Activate target tab & button
+            document.getElementById(`view-${tabId}`).classList.add('active');
+            
+            const activeBtn = document.getElementById(`nav-${activeButtonName(tabId)}`);
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('text-white/40');
+            activeBtn.classList.add('text-secondary-container');
+            
+            // Add absolute active dot
+            const dot = document.createElement('div');
+            dot.className = 'absolute -bottom-1 w-1 h-1 bg-secondary-container rounded-full';
+            activeBtn.appendChild(dot);
+        }
+
+        function activeButtonName(tabId) {
+            if (tabId === 'control') return 'control';
+            if (tabId === 'logs') return 'logs';
+            if (tabId === 'info') return 'info';
+            return 'control';
+        }
+    </script>
+</body>
+</html>

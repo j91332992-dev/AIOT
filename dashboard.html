@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 알약 디스펜서 대시보드</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --text-color: #e0e0e0;
+            --danger-color: #cf6679;
+            --success-color: #03dac6;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .card {
+            background: var(--surface-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h1, h2 { margin-top: 0; }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        input {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #2c2c2c;
+            color: white;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 24px;
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: #9965f4; }
+
+        #webcam-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #label-container div {
+            padding: 8px;
+            margin: 4px 0;
+            background: #333;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 16px;
+        }
+
+        .alert-box {
+            display: none;
+            background-color: var(--danger-color);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .log-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .log-item {
+            padding: 12px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status-badge {
+            background: var(--success-color);
+            color: black;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1>스마트 알약 디스펜서 통합 대시보드</h1>
+        <p>Teachable Machine 모션 인식 및 복약 상태 모니터링</p>
+    </div>
+
+    <div class="card">
+        <h2>환경 설정</h2>
+        <div class="input-group">
+            <label>ESP32 IP 주소:</label>
+            <input type="text" id="esp-ip" placeholder="예: 192.168.0.100" />
+        </div>
+        <div class="input-group">
+            <label>Teachable Machine 모델 URL:</label>
+            <input type="text" id="tm-url" value="[티쳐블 머신 모델 URL 입력]" />
+        </div>
+        <button type="button" onclick="init()">카메라 시작 및 모델 로드</button>
+    </div>
+
+    <div id="alert-box" class="alert-box">
+        <h2>🚨 위급 상황 발생! (X자 모션 감지) 🚨</h2>
+        <p>보호자 및 원격 서버로 긴급 알림을 전송했습니다.</p>
+    </div>
+
+    <div class="card" id="camera-card" style="display: none;">
+        <h2>모션 제어 카메라</h2>
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+    </div>
+
+    <div class="card">
+        <h2>알약 복용 기록 모니터링</h2>
+        <ul class="log-list" id="pill-log">
+            <li class="log-item">
+                <span>2026-07-26 13:00 (점심)</span>
+                <span class="status-badge">복용 완료</span>
+            </li>
+            <li class="log-item">
+                <span>2026-07-26 08:30 (아침)</span>
+                <span class="status-badge">복용 완료</span>
+            </li>
+            <!-- 실제 운영 시 웹 서버(DB)에서 데이터를 가져와(fetch) 동적으로 렌더링해야 함 -->
+        </ul>
+    </div>
+</div>
+
+<!-- TensorFlow & Teachable Machine 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    let model, webcam, labelContainer, maxPredictions;
+    let lastGesture = "";
+    let lastSentTime = 0;
+    const THROTTLE_MS = 2000; // API 중복 호출 방지 쿨타임 (2초)
+
+    async function init() {
+        let tmUrl = document.getElementById("tm-url").value;
+        if (tmUrl.includes("[") || tmUrl.trim() === "") {
+            alert("유효한 Teachable Machine URL을 입력해주세요!");
+            return;
+        }
+        if (!tmUrl.endsWith("/")) tmUrl += "/";
+
+        const modelURL = tmUrl + "model.json";
+        const metadataURL = tmUrl + "metadata.json";
+
+        try {
+            document.querySelector("button").innerText = "모델 로딩 중...";
+            document.querySelector("button").disabled = true;
+
+            // 모델 로드
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // 카메라 설정
+            const flip = true; // 거울 모드
+            webcam = new tmImage.Webcam(400, 400, flip);
+            await webcam.setup(); // 카메라 권한 요청
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // DOM 업데이트
+            document.getElementById("camera-card").style.display = "block";
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = "";
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+            
+            document.querySelector("button").innerText = "카메라 작동 중";
+        } catch (e) {
+            console.error(e);
+            alert("카메라를 시작하거나 모델을 로드하는 중 오류가 발생했습니다.");
+            document.querySelector("button").innerText = "카메라 시작 및 모델 로드";
+            document.querySelector("button").disabled = false;
+        }
+    }
+
+    async function loop() {
+        webcam.update(); // 캔버스 프레임 업데이트
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        // 추론 실행
+        const prediction = await model.predict(webcam.canvas);
+        
+        let bestProb = 0;
+        let bestClass = "";
+
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(0) + "%";
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+            
+            if (prediction[i].probability > bestProb) {
+                bestProb = prediction[i].probability;
+                bestClass = prediction[i].className;
+            }
+        }
+
+        // 정확도가 85% 이상일 때만 액션 실행
+        if (bestProb > 0.85) {
+            handleGesture(bestClass);
+        }
+    }
+
+    function handleGesture(gestureName) {
+        const now = Date.now();
+        // 같은 제스처를 연속으로 보내거나 쿨타임(2초)이 안 지났으면 스킵
+        if (gestureName === lastGesture || now - lastSentTime < THROTTLE_MS) {
+            return;
+        }
+
+        lastGesture = gestureName;
+        lastSentTime = now;
+
+        // 클래스 이름을 ESP32가 이해할 수 있는 action 파라미터로 변환
+        let action = "";
+        let lowerName = gestureName.toLowerCase();
+
+        if (lowerName.includes("주먹") || lowerName.includes("fist")) {
+            action = "fist";
+        } 
+        else if (lowerName.includes("보") || lowerName.includes("손 펴기") || lowerName.includes("open")) {
+            action = "open";
+        } 
+        else if (lowerName.includes("x") || lowerName.includes("cross")) {
+            action = "cross";
+            triggerEmergency();
+        }
+
+        if (action !== "") {
+            sendActionToESP32(action);
+        }
+    }
+
+    function sendActionToESP32(action) {
+        const ip = document.getElementById("esp-ip").value;
+        if (!ip) {
+            console.warn("ESP32 IP가 입력되지 않아 명령을 전송하지 않습니다.");
+            return;
+        }
+
+        const url = `http://${ip}/gesture?action=${action}`;
+        console.log(`[API 요청] ${url}`);
+
+        fetch(url)
+            .then(res => res.text())
+            .then(data => console.log("[ESP32 응답] " + data))
+            .catch(err => console.error("[ESP32 통신 에러]", err));
+    }
+
+    function triggerEmergency() {
+        const alertBox = document.getElementById("alert-box");
+        alertBox.style.display = "block";
+        
+        // 브라우저 삐 소리 (간이)
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        osc.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1);
+
+        // 5초 후 알림창 숨김
+        setTimeout(() => {
+            alertBox.style.display = "none";
+        }, 5000);
+    }
+</script>
+</body>
+</html>
