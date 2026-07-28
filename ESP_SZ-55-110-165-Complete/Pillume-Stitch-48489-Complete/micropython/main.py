@@ -99,9 +99,9 @@ class BLESimplePeripheral:
         ) = self._ble.gatts_register_services((_BLE_SERVICE,))[0]
 
         # MicroPython's default GATT value buffer is only 20 bytes.
-        self._ble.gatts_set_buffer(self._command_handle, 512, False)
-        self._ble.gatts_set_buffer(self._status_handle, 512, False)
-        self._ble.gatts_set_buffer(self._event_handle, 512, False)
+        self._ble.gatts_set_buffer(self._command_handle, 1024, False)
+        self._ble.gatts_set_buffer(self._status_handle, 1024, False)
+        self._ble.gatts_set_buffer(self._event_handle, 1024, False)
 
         self._payload = _advertising_payload(name, BLE_SERVICE_UUID)
         self._advertise()
