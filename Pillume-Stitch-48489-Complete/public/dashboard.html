@@ -658,7 +658,33 @@
         if(!s.refillActive){$("refillStatus").textContent="55° · 110° · 165°에서 한 알씩 넣습니다.";$("refillButton").textContent="채우기 시작 · 55°로 이동"}
         else{$("refillStatus").textContent=`${s.refillStep||0}번 칸 위치 · 약을 넣고 다시 눌러 주세요`;$("refillButton").textContent=s.refillStep===3?"채우기 완료 · 0°로 복귀":"다음 칸으로 이동"}
       }
-      function parseStatus(view){const s=JSON.parse(decoder.decode(view));if(testMode){testLiveStatusBuffer=s;return}applyStatus(s)}
+      function parseStatus(view){
+        let s=JSON.parse(decoder.decode(view));
+        if(s.tk!==undefined){
+          s={
+            timeSynced:s.ts,
+            time:s.t,
+            neopixel:s.np,
+            lightColor:s.lc,
+            lightBrightness:s.lb,
+            emergency:s.em,
+            currentAngle:s.ca,
+            compartmentIndex:s.ci,
+            refillActive:s.ra,
+            refillStep:s.rs,
+            pendingDoses:s.pd,
+            activeSlot:s.as,
+            taken:{
+              morning:Boolean(s.tk&0x01),
+              lunch:Boolean(s.tk&0x02),
+              evening:Boolean(s.tk&0x04)
+            },
+            testMode:s.tm
+          };
+        }
+        if(testMode){testLiveStatusBuffer=s;return}
+        applyStatus(s);
+      }
       function saveDeviceEvent(event){
         event.localReceivedAt=new Date().toISOString();storedEvents.unshift(event);storedEvents=storedEvents.slice(0,1000);
         if(testMode)event.testOnly=true;else localStorage.setItem("pillume-medication-events",JSON.stringify(storedEvents));

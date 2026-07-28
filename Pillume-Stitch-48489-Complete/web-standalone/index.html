@@ -171,7 +171,30 @@
       function setConnected(on){$("connection").textContent=on?"ESP_SZ 연결됨":"BLE 연결 대기";$("connection").classList.toggle("online",on);for(const id of ["lightColor","lightBrightness","applyLightButton","lightOffButton"])$(id).disabled=!on;if(!on){$("refillButton").disabled=true;$("refillButton").textContent="ESP_SZ 연결 필요"}}
       function write(payload){if(!commandChar)throw new Error("ESP_SZ를 먼저 연결하세요.");return commandChar.writeValue(encoder.encode(JSON.stringify(payload)))}
       function parseStatus(view){
-        const s=JSON.parse(decoder.decode(view));latestStatus=s;$("light").textContent=s.neopixel?"ON":"OFF";$("pending").textContent=`${s.pendingDoses||0}회`;$("angle").textContent=`${s.currentAngle||0}°`;
+        let s=JSON.parse(decoder.decode(view));
+        if(s.tk!==undefined){
+          s={
+            timeSynced:s.ts,
+            time:s.t,
+            neopixel:s.np,
+            lightColor:s.lc,
+            lightBrightness:s.lb,
+            emergency:s.em,
+            currentAngle:s.ca,
+            compartmentIndex:s.ci,
+            refillActive:s.ra,
+            refillStep:s.rs,
+            pendingDoses:s.pd,
+            activeSlot:s.as,
+            taken:{
+              morning:Boolean(s.tk&0x01),
+              lunch:Boolean(s.tk&0x02),
+              evening:Boolean(s.tk&0x04)
+            },
+            testMode:s.tm
+          };
+        }
+        latestStatus=s;$("light").textContent=s.neopixel?"ON":"OFF";$("pending").textContent=`${s.pendingDoses||0}회`;$("angle").textContent=`${s.currentAngle||0}°`;
         $("emergencyOverlay").classList.toggle("open",Boolean(s.emergency));
         if(!lightDraftDirty){if(/^#[0-9a-f]{6}$/i.test(s.lightColor||""))$("lightColor").value=s.lightColor;if(s.lightBrightness!=null)$("lightBrightness").value=String(s.lightBrightness);updateLightPreview()}
         renderTodayDoseStates();
