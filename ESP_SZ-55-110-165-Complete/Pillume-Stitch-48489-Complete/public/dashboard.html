@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pillume — 스마트 복약 관리 대시보드</title>
+    <meta name="description" content="ESP_SZ 스마트 알약 디스펜서, 모션 무드등, 복약 기록을 한곳에서 관리하는 Pillume 대시보드" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+    <style>
+      :root {
+        --ink:#252525;
+        --ink-soft:#4f5552;
+        --muted:#757575;
+        --line:#e0e0e0;
+        --line-soft:#edf0ef;
+        --paper:#f4f7f6;
+        --card:#ffffff;
+        --green:#1677d2;
+        --green-dark:#0056a3;
+        --sage:#e1f5fe;
+        --sage-soft:#f7f9f9;
+        --blue:#1677d2;
+        --blue-soft:#e1f5fe;
+        --amber:#b66b00;
+        --amber-soft:#fff8e7;
+        --red:#c94d42;
+        --red-soft:#fdecea;
+        --shadow-sm:0 2px 12px rgba(0,0,0,.04);
+        --shadow-md:0 8px 28px rgba(0,0,0,.07);
+        --shadow-lg:0 20px 60px rgba(0,0,0,.16);
+        --radius-sm:12px;
+        --radius-md:16px;
+        --radius-lg:24px;
+        --radius-xl:28px;
+      }
+      *{box-sizing:border-box}
+      html{scroll-behavior:smooth}
+      body{
+        margin:0;
+        min-height:100vh;
+        background:var(--paper);
+        color:var(--ink);
+        font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+        font-size:14px;
+        line-height:1.55;
+        -webkit-font-smoothing:antialiased;
+      }
+      body.modal-open{overflow:hidden}
+      button,input{font:inherit}
+      button{cursor:pointer}
+      button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid rgba(22,119,210,.22);outline-offset:2px}
+      button:disabled,input:disabled{cursor:not-allowed;opacity:.48}
+      .material-symbols-outlined{font-size:21px;line-height:1;font-variation-settings:"FILL" 0,"wght" 450,"GRAD" 0,"opsz" 24}
+      .shell{width:min(1024px,calc(100% - 48px));margin:0 auto}
+      .site-header{
+        position:sticky;
+        top:0;
+        z-index:40;
+        border-bottom:1px solid #f0f1f1;
+        background:#fff;
+      }
+      .header-inner{height:64px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+      .header-start{display:flex;align-items:center;gap:12px}
+      .brand{display:inline-flex;align-items:center;gap:9px;color:var(--ink);text-decoration:none;font-size:16px;font-weight:800;letter-spacing:-.035em}
+      .brand-mark{color:var(--blue);font-size:24px}
+      .test-launch{height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border:1px solid #c9def0;border-radius:999px;background:#f5faff;color:var(--blue);font-size:10px;font-weight:900;letter-spacing:.08em}
+      .test-launch:hover,.test-launch.active{border-color:var(--blue);background:var(--blue);color:#fff}
+      .test-launch .material-symbols-outlined{font-size:18px}
+      .header-actions,.actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+      .icon-button,.close,.nav-item{
+        display:inline-grid;
+        place-items:center;
+        width:40px;
+        height:40px;
+        min-height:40px;
+        padding:0;
+        border:0;
+        border-radius:50%;
+        background:#fff;
+        color:var(--ink-soft);
+        transition:background-color .2s ease,border-color .2s ease,color .2s ease,transform .2s ease;
+      }
+      .icon-button:hover,.close:hover{background:#f2f5f4;color:var(--blue);transform:translateY(-1px)}
+      .button{
+        min-height:42px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        padding:0 16px;
+        border:1px solid var(--line);
+        border-radius:12px;
+        background:#fff;
+        color:var(--ink);
+        font-weight:700;
+        transition:background-color .2s ease,border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+      }
+      .button:hover{border-color:#c8d5c9;background:#fafcf9;transform:translateY(-1px)}
+      .button.primary{border-color:var(--blue);background:var(--blue);color:#fff;box-shadow:0 5px 14px rgba(22,119,210,.18)}
+      .button.primary:hover{background:var(--green-dark)}
+      .button.danger,.danger{border-color:var(--red);background:var(--red);color:#fff}
+      .button.ghost-danger{border-color:#eccbc7;color:var(--red);background:#fff}
+      .badge{
+        display:inline-flex;
+        align-items:center;
+        gap:7px;
+        min-height:32px;
+        padding:0 12px;
+        border-radius:999px;
+        background:#f0f2ef;
+        color:var(--muted);
+        font-size:11px;
+        font-weight:700;
+      }
+      .badge::before{content:"";width:7px;height:7px;border-radius:50%;background:#aab0ab}
+      .badge.online{background:var(--blue-soft);color:var(--blue)}
+      .badge.online::before{background:var(--blue);box-shadow:0 0 0 4px rgba(22,119,210,.12)}
+      .connect-button{min-height:36px;padding:0 14px;border:0!important;border-radius:999px!important;background:transparent!important;color:var(--blue)!important;box-shadow:none!important;font-size:12px}
+      .connect-button:hover{background:#eef7fd!important}
+      .test-mode-bar{position:sticky;z-index:35;top:64px;display:none;align-items:center;justify-content:space-between;gap:16px;padding:10px max(24px,calc((100% - 1024px)/2));border-bottom:1px solid #b9d9f4;background:#eaf5ff;color:#0056a3;font-size:11px;font-weight:800}
+      .test-mode-bar strong{display:flex;align-items:center;gap:7px}.test-mode-bar .material-symbols-outlined{font-size:18px}
+      .test-mode-bar button{min-height:32px;padding:0 12px;border:1px solid #9bc7eb;border-radius:999px;background:#fff;color:#0056a3;font-size:10px;font-weight:900}
+      body.test-active .test-mode-bar{display:flex}
+      body.test-active .site-header{border-bottom-color:#b9d9f4}
+      .hero{padding:30px 0 40px}
+      .hero-kicker{display:none}
+      .hero h1{max-width:none;margin:0;font-size:30px;line-height:1.22;letter-spacing:-.04em;font-weight:700}
+      .hero h1 em{color:inherit;font-style:normal}
+      .hero p{max-width:620px;margin:4px 0 0;color:var(--muted);font-size:14px;font-weight:500}
+      .dashboard-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(300px,5fr);gap:24px;padding-bottom:42px}
+      .left-stack{min-width:0;display:flex;flex-direction:column;gap:24px}
+      .card{
+        min-width:0;
+        padding:24px;
+        border:1px solid rgba(0,0,0,.03);
+        border-radius:var(--radius-lg);
+        background:var(--card);
+        box-shadow:var(--shadow-sm);
+      }
+      .card-wide{grid-column:1/-1}
+      .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+      .eyebrow{display:none}
+      h2,h3,p{margin-top:0}
+      .card h2,.modal h2{margin:0;font-size:18px;line-height:1.35;letter-spacing:-.025em}
+      .card-copy{display:none}
+      .mini-badge{padding:5px 9px;border-radius:999px;background:var(--sage-soft);color:var(--muted);font-size:10px;font-weight:700;white-space:nowrap}
+      .schedule{display:grid;gap:10px}
+      .dose{
+        display:grid;
+        grid-template-columns:42px minmax(0,1fr) auto;
+        align-items:center;
+        gap:12px;
+        min-height:68px;
+        padding:11px 14px;
+        border:1px solid var(--line);
+        border-radius:20px;
+        background:#fff;
+      }
+      .dose:hover{border-color:#bfd6ea}
+      .dose-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:#f7f9f9;color:var(--blue)}
+      .dose-icon.morning{color:#d87834}.dose-icon.lunch{color:#b99116}.dose-icon.evening{color:#536cc5}
+      .dose b,.dose small{display:block}.dose b{font-size:13px}.dose small{margin-top:2px;color:var(--muted);font-size:10px}
+      .dose-state{padding:6px 9px;border-radius:999px;background:#fff;color:var(--muted);font-size:10px;font-weight:700}
+      .dose-state.taken{background:var(--blue-soft);color:var(--blue)}
+      .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0}
+      .stat{min-height:120px;display:flex;flex-direction:column;justify-content:space-between;padding:16px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+      .stat>.material-symbols-outlined{color:var(--blue)}
+      .stat:nth-child(2)>.material-symbols-outlined{color:#9e9e9e}
+      .stat span,.stat b{display:block}.stat span{color:var(--muted);font-size:12px;font-weight:700}.stat b{margin-top:3px;font-size:20px;letter-spacing:-.03em;font-weight:800}
+      .refill-card{display:flex;min-height:100%;flex-direction:column}
+      .refill-card{padding:32px}
+      .refill-visual{
+        width:64px;height:64px;display:grid;place-items:center;margin:18px auto 24px;border-radius:16px;background:#f6f8f7;color:#9e9e9e
+      }
+      .refill-visual .material-symbols-outlined{font-size:34px}
+      .refill-description{margin:auto 0 16px;text-align:center}
+      .refill-description b,.refill-description small{display:block}.refill-description b{font-size:14px}.refill-description small{margin-top:7px;color:var(--muted);font-size:11px}
+      .refill-card .button{width:100%}
+      .notice{display:flex;align-items:flex-start;gap:8px;margin-top:14px;padding:12px;border:0;border-radius:12px;background:#f7f9f9;color:var(--muted);font-size:10px}
+      .notice .material-symbols-outlined{font-size:16px;margin-top:1px}
+      .activity-empty{min-height:118px;display:grid;place-items:center;border-radius:16px;background:#fbfcfa;color:var(--muted);text-align:center}
+      #logs{margin:0;padding:0;list-style:none}
+      #logs li{display:grid;grid-template-columns:36px 1fr;gap:11px;padding:12px 0;border-top:1px solid var(--line-soft)}
+      #logs li:first-child{border-top:0}
+      #logs li::before{content:"history";width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:var(--sage);color:var(--green);font-family:"Material Symbols Outlined";font-size:18px}
+      #logs b,#logs small{display:block}#logs b{font-size:12px}#logs small{margin-top:2px;color:var(--muted);font-size:10px}
+      .logs-more-wrap{display:flex;justify-content:center;margin-top:12px;padding-top:14px;border-top:1px solid var(--line-soft)}
+      .logs-more-button{min-width:120px;height:38px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--blue);font-size:11px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s,transform .2s}
+      .logs-more-button:hover{background:var(--blue-soft);border-color:#b9d9f4}.logs-more-button:active{transform:scale(.98)}
+      .logs-more-button .material-symbols-outlined{font-size:17px;transition:transform .2s}.logs-more-button[aria-expanded="true"] .material-symbols-outlined{transform:rotate(180deg)}
+      .logs-more-wrap[hidden]{display:none}
+      .overlay{position:fixed;z-index:60;inset:0;display:none;place-items:center;padding:20px;background:rgba(18,29,21,.46);backdrop-filter:blur(10px)}
+      .overlay.open{display:grid}
+      .modal{width:min(700px,100%);max-height:calc(100vh - 40px);overflow:auto;padding:28px;border:1px solid rgba(255,255,255,.7);border-radius:var(--radius-xl);background:#fff;box-shadow:var(--shadow-lg)}
+      .modal.large{width:min(900px,100%)}
+      .modal.test-modal{width:min(960px,100%)}
+      .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+      .modal-head p{margin:6px 0 0;color:var(--muted);font-size:11px}
+      .close{border-radius:50%;flex:0 0 auto}
+      .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+      .settings-panel{padding:18px;border:1px solid var(--line);border-radius:18px;background:#fbfcfa}
+      .settings-panel h3{margin:0 0 12px;font-size:14px}
+      label{display:block;margin:12px 0 0;color:var(--muted);font-size:10px;font-weight:800}
+      input{width:100%;height:44px;margin-top:6px;padding:0 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink)}
+      input:focus{border-color:#9bb49e;box-shadow:0 0 0 3px rgba(49,91,59,.08)}
+      .hint{display:flex;gap:8px;margin:0 0 14px;padding:11px 12px;border-radius:12px;background:var(--amber-soft);color:#80621c;font-size:10px}
+      .hint .material-symbols-outlined{font-size:17px}
+      #webcam{min-height:270px;display:grid;place-items:center;overflow:hidden;border:1px dashed #cfd8cf;border-radius:18px;background:#f1f4f0;color:var(--muted);text-align:center}
+      #webcam canvas{width:100%;height:100%;object-fit:cover}
+      #prediction{margin-top:10px;padding:9px 12px;border-radius:11px;background:var(--sage);color:var(--green);font-size:11px;font-weight:800;text-align:center}
+      .manual-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+      .manual-actions .button{padding:0 10px;font-size:11px}
+      .light-control{padding:18px;border:1px solid var(--line);border-radius:18px;background:#fbfcfa}
+      .light-preview{height:76px;margin-bottom:18px;border-radius:18px;background:var(--light-color,#deee9a);opacity:var(--light-strength,.7);box-shadow:0 0 24px var(--light-color,#deee9a)}
+      .light-row{display:grid;grid-template-columns:110px 1fr;gap:14px}
+      .light-control label{margin:0}
+      .light-control input[type=color]{padding:4px}
+      .light-control input[type=range]{padding:0;accent-color:var(--green)}
+      .light-value{float:right;color:var(--green)}
+      .calendar-controls{display:grid;grid-template-columns:42px 1fr 42px;align-items:center;margin:0 0 14px;text-align:center}
+      .calendar-controls .icon-button:last-child{justify-self:end}
+      .weekdays,.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+      .weekdays{margin-bottom:7px;color:var(--muted);font-size:9px;font-weight:800;text-align:center}
+      .day,.blank{min-height:72px}
+      .day{padding:8px;border:1px solid var(--line-soft);border-radius:12px;background:#fbfcfa}
+      .day.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+      .day b{font-size:11px}
+      .marks{display:flex;gap:3px;margin-top:8px}
+      .marks i{width:20px;height:20px;display:grid;place-items:center;border-radius:50%;background:#edf0ec;color:#99a099;font-size:7px;font-style:normal;font-weight:800}
+      .marks i.taken{background:var(--green);color:#fff}
+      .legend{margin-top:15px;color:var(--muted);font-size:9px;text-align:center}
+      .emergency{width:min(430px,100%);text-align:center}
+      .alarm{width:72px;height:72px;display:grid;place-items:center;margin:0 auto 16px;border-radius:50%;background:var(--red-soft);color:var(--red)}
+      .alarm .material-symbols-outlined{font-size:38px;font-variation-settings:"FILL" 1,"wght" 600,"GRAD" 0,"opsz" 40}
+      .emergency p{color:var(--muted)}
+      .emergency .button{width:100%;margin-top:8px}
+      .test-safety{display:flex;align-items:flex-start;gap:9px;margin-bottom:18px;padding:12px 14px;border-radius:14px;background:#eaf5ff;color:#0056a3;font-size:11px;line-height:1.55}
+      .test-safety .material-symbols-outlined{flex:0 0 auto;margin-top:1px;font-size:18px}
+      .test-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px}
+      .test-panel{padding:18px;border:1px solid var(--line);border-radius:18px;background:#fbfcfc}
+      .test-panel h3{margin:0 0 12px;font-size:13px}
+      .test-choice-list{display:grid;gap:8px}
+      .test-choice{width:100%;min-height:48px;display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);text-align:left;font-size:11px;font-weight:800}
+      .test-choice:hover,.test-choice.selected{border-color:#8dc1ea;background:#edf7ff;color:#0056a3}
+      .test-choice .material-symbols-outlined{font-size:19px;color:var(--blue)}
+      .test-scenario-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+      .test-scenario{min-height:70px;display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);text-align:left}
+      .test-scenario:hover{border-color:#8dc1ea;background:#f7fbff}.test-scenario .material-symbols-outlined{color:var(--blue)}
+      .test-scenario b,.test-scenario small{display:block}.test-scenario b{font-size:11px}.test-scenario small{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}
+      .test-result{margin-top:16px;padding:16px;border-radius:16px;background:#f0f7fd}
+      .test-result-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .test-result-head span{color:#0056a3;font-size:10px;font-weight:900;letter-spacing:.06em}.test-result-head b{font-size:18px}
+      .test-result p{margin:10px 0 0;color:#4c6578;font-size:11px;line-height:1.65}
+      .test-result ul{margin:10px 0 0;padding-left:18px;color:#4c6578;font-size:10px;line-height:1.7}
+      .test-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+      .test-demo-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:#fff;color:#0056a3;font-size:9px;font-weight:900}
+      .ai-launcher{position:fixed;z-index:55;right:32px;bottom:32px;width:64px;height:64px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:50%;background:linear-gradient(135deg,#1677d2 0%,#0056a3 100%);color:#fff;font-weight:800;box-shadow:0 8px 32px rgba(22,119,210,.4)}
+      .ai-launcher>span:last-child{display:none}
+      .ai-panel{position:fixed;z-index:54;right:24px;bottom:88px;width:min(400px,calc(100% - 32px));max-height:min(670px,calc(100vh - 116px));display:none;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:var(--shadow-lg)}
+      .ai-panel.open{display:flex}
+      .ai-head{padding:15px 16px;display:flex;align-items:center;justify-content:space-between;background:#fff;border-bottom:1px solid var(--line-soft)}
+      .ai-title{display:flex;align-items:center;gap:10px}.ai-avatar{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:var(--green);color:#fff}
+      .ai-head b,.ai-head small{display:block}.ai-head small{margin-top:2px;color:var(--muted);font-size:9px}
+      .ai-head .close{width:34px;height:34px;min-height:34px;background:rgba(255,255,255,.7)}
+      .ai-setup{padding:28px 22px;text-align:center}.ai-setup h3{margin:0}.ai-setup p{color:var(--muted);font-size:10px}.ai-setup label{text-align:left}
+      .ai-setup .button{width:100%;margin-top:10px}.ai-setup small{display:block;margin-top:12px;color:#8c948e;font-size:8px}
+      .ai-chat{min-height:0;display:flex;flex:1;flex-direction:column}.ai-chat.hidden,.ai-setup.hidden{display:none}
+      .ai-messages{min-height:230px;padding:15px;display:flex;flex:1;flex-direction:column;gap:9px;overflow-y:auto;background:#fbfcf9}
+      .ai-message{max-width:88%;padding:11px 12px;border:1px solid var(--line-soft);border-radius:15px 15px 15px 5px;background:#fff;font-size:11px;white-space:pre-wrap;box-shadow:var(--shadow-sm)}
+      .ai-message.user{align-self:flex-end;border-color:var(--green);border-radius:15px 15px 5px 15px;background:var(--green);color:#fff}
+      .ai-action{margin-top:9px;padding:10px;border:1px solid #cfe0cd;border-radius:11px;background:#f2f8ee;color:var(--ink)}
+      .ai-action b,.ai-action small{display:block}.ai-action b{margin-bottom:8px}
+      .ai-action .actions button{min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:9px;font-weight:700}
+      .ai-action .actions button.primary{border-color:var(--green);background:var(--green);color:#fff}
+      .ai-action.done small{color:var(--green);font-weight:800}
+      .ai-form{padding:10px;display:grid;grid-template-columns:1fr 42px;gap:7px;border-top:1px solid var(--line)}
+      .ai-form input{height:42px;margin:0}.ai-form button{width:42px;height:42px;display:grid;place-items:center;padding:0;border:0;border-radius:11px;background:var(--green);color:#fff}
+      .ai-note{padding:0 12px 10px;color:#899189;font-size:8px;text-align:center}.ai-note button{min-height:auto;padding:0;border:0;background:transparent;color:var(--green);font-size:inherit;text-decoration:underline}
+      .mobile-nav{display:none}
+      @media(max-width:860px){
+        .shell{width:min(100% - 28px,720px)}
+        .header-inner{height:64px}.header-actions .badge{display:none}
+        .hero{padding:40px 0 26px}
+        .dashboard-grid{grid-template-columns:1fr}
+        .card-wide{grid-column:auto}
+        .refill-card{min-height:auto}
+        .settings-grid{grid-template-columns:1fr}
+        .test-layout{grid-template-columns:1fr}
+        .test-choice-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+      }
+      @media(max-width:620px){
+        body{padding-bottom:72px}
+        .shell{width:calc(100% - 24px)}
+        .header-start{gap:7px}.test-launch{width:36px;padding:0;justify-content:center}.test-launch span:last-child{display:none}
+        .site-header .icon-button{display:none}
+        .header-actions{gap:7px}
+        .button.connect-button{min-height:38px;padding:0 12px;font-size:10px}
+        .hero{padding:28px 2px 24px}.hero-kicker{font-size:9px}.hero h1{font-size:28px}.hero p{font-size:12px}
+        .dashboard-grid{gap:13px}.card{padding:18px;border-radius:20px}.card-head{margin-bottom:14px}
+        .dose{grid-template-columns:38px minmax(0,1fr) auto;padding:10px}.dose-icon{width:34px;height:34px}
+        .stats{grid-template-columns:1fr 1fr}
+        .modal{max-height:calc(100vh - 20px);padding:19px;border-radius:22px}
+        .overlay{padding:10px}
+        .test-mode-bar{padding:8px 14px}.test-mode-bar strong span:last-child{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .test-choice-list,.test-scenario-grid{grid-template-columns:1fr}
+        .manual-actions{grid-template-columns:1fr}
+        .light-row{grid-template-columns:88px 1fr}
+        .day,.blank{min-height:58px}.marks{gap:1px}.marks i{width:17px;height:17px;font-size:6px}
+        .ai-launcher{right:14px;bottom:82px}.ai-panel{right:8px;bottom:142px;width:calc(100% - 16px);max-height:calc(100vh - 158px)}
+        .mobile-nav{
+          position:fixed;z-index:50;left:0;right:0;bottom:0;height:66px;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid rgba(223,230,223,.9);background:rgba(255,255,255,.94);backdrop-filter:blur(14px)
+        }
+        .nav-item{width:auto;height:66px;border:0;border-radius:0;background:transparent;color:var(--muted);font-size:9px;text-decoration:none}
+        .nav-item .material-symbols-outlined{display:block;margin:0 auto 3px;font-size:20px}.nav-item.active{color:var(--green)}
+      }
+      @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <div class="header-start">
+          <button id="testModeButton" class="test-launch" type="button" onclick="openTestMode()" aria-label="테스트 모드 열기" title="안전한 기능 테스트">
+            <span class="material-symbols-outlined" aria-hidden="true">science</span>
+            <span>TEST</span>
+          </button>
+          <a class="brand" href="#top" aria-label="Pillume 홈">
+            <span class="material-symbols-outlined brand-mark" aria-hidden="true">medication</span>
+            <span>Pillume</span>
+          </a>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button" type="button" onclick="openCalendar()" aria-label="복약 캘린더 열기" title="복약 캘린더">
+            <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+          </button>
+          <button class="icon-button" type="button" onclick="openCamera()" aria-label="모션 인식 열기" title="모션 인식">
+            <span class="material-symbols-outlined" aria-hidden="true">videocam</span>
+          </button>
+          <button class="icon-button" type="button" onclick="openLight()" aria-label="무드등 제어 열기" title="무드등 제어">
+            <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+          </button>
+          <span id="connection" class="badge">BLE 연결 대기</span>
+          <button id="connectButton" class="button primary connect-button" type="button" onclick="connectBle()">
+            <span class="material-symbols-outlined" aria-hidden="true">bluetooth</span>
+            연결하기
+          </button>
+        </div>
+      </div>
+    </header>
+    <div id="testModeBar" class="test-mode-bar" role="status">
+      <strong><span class="material-symbols-outlined" aria-hidden="true">science</span><span>TEST MODE · 장치 전송과 실제 기록 저장이 차단되었습니다.</span></strong>
+      <button type="button" onclick="exitTestMode()">테스트 종료 · 원래 상태 복원</button>
+    </div>
+
+    <main id="top" class="shell">
+      <section class="hero" aria-labelledby="heroTitle">
+        <p class="hero-kicker">ESP_SZ Smart Care</p>
+        <h1 id="heroTitle">안녕하세요!</h1>
+        <p>오늘의 복약을 도와드릴게요.</p>
+      </section>
+
+      <div class="dashboard-grid">
+        <div class="left-stack">
+          <section class="card" aria-labelledby="doseTitle">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Today</span>
+                <h2 id="doseTitle">복약 일정</h2>
+              </div>
+            </div>
+            <div class="schedule">
+              <div class="dose">
+                <span class="dose-icon morning"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span></span>
+                <div><b>아침 약</b><small>07:00–10:00</small></div>
+                <span class="dose-state" id="morningState">대기</span>
+              </div>
+              <div class="dose">
+                <span class="dose-icon lunch"><span class="material-symbols-outlined" aria-hidden="true">sunny</span></span>
+                <div><b>점심 약</b><small>11:00–13:00</small></div>
+                <span class="dose-state" id="lunchState">대기</span>
+              </div>
+              <div class="dose">
+                <span class="dose-icon evening"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span></span>
+                <div><b>저녁 약</b><small>15:00–17:00</small></div>
+                <span class="dose-state" id="eveningState">대기</span>
+              </div>
+            </div>
+          </section>
+          <div class="stats" aria-label="장치 상태">
+            <div class="stat">
+              <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>
+              <div><span>무드등</span><b id="light">—</b></div>
+            </div>
+            <div class="stat">
+              <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+              <div><span>밀린 복약</span><b id="pending">—</b></div>
+            </div>
+          </div>
+        </div>
+
+        <section class="card refill-card" aria-labelledby="refillTitle">
+          <div class="card-head">
+            <div>
+              <span class="eyebrow">Dispenser</span>
+              <h2 id="refillTitle">알약 채우기</h2>
+            </div>
+          </div>
+          <div class="refill-visual">
+            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+          </div>
+          <div class="refill-description">
+            <b>총 3칸을 순서대로 채워 주세요.</b>
+            <small id="refillStatus">55° · 110° · 165°에서 한 알씩 넣습니다.</small>
+          </div>
+          <button id="refillButton" class="button primary" type="button" onclick="sendRefill()" disabled>
+            ESP_SZ 연결 필요
+          </button>
+          <div class="notice">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            <span>서보가 움직일 때 손을 기구부에서 떼어 주세요.</span>
+          </div>
+        </section>
+
+        <section class="card card-wide" aria-labelledby="activityTitle">
+          <div class="card-head">
+            <div>
+              <span class="eyebrow">Activity</span>
+              <h2 id="activityTitle">최근 활동</h2>
+              <p class="card-copy">복약 완료와 장치 이벤트가 최신순으로 표시됩니다.</p>
+            </div>
+            <button class="icon-button" type="button" onclick="openCalendar()" aria-label="전체 복약 기록 보기">
+              <span class="material-symbols-outlined" aria-hidden="true">event_note</span>
+            </button>
+          </div>
+          <ul id="logs"><li>BLE 연결 후 새 기록이 표시됩니다.</li></ul>
+          <div id="logsMoreWrap" class="logs-more-wrap" hidden>
+            <button id="logsMoreButton" class="logs-more-button" type="button" onclick="toggleLogs()" aria-controls="logs" aria-expanded="false">
+              <span id="logsMoreLabel">더보기</span>
+              <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <button id="aiLauncher" class="ai-launcher" type="button" onclick="toggleAssistant()" aria-label="AI 챗봇 열기">
+      <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
+      <span>AI 챗봇</span>
+    </button>
+    <aside id="aiPanel" class="ai-panel" role="dialog" aria-label="Pillume AI 챗봇">
+      <div class="ai-head">
+        <div class="ai-title">
+          <span class="ai-avatar"><span class="material-symbols-outlined" aria-hidden="true">smart_toy</span></span>
+          <div><b>Pillume AI Assistant</b><small>질문 안내 · 복약 기록 보정</small></div>
+        </div>
+        <button class="close" type="button" onclick="toggleAssistant(false)" aria-label="AI 챗봇 닫기">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+      </div>
+      <form id="aiSetup" class="ai-setup" onsubmit="activateAssistantKey(event)">
+          <h3>AI 챗봇 활성화</h3>
+        <p>OpenAI API 키를 입력하면 사용 방법 안내와 복약 기록 보정을 도와드립니다. 키는 현재 탭의 메모리에만 유지됩니다.</p>
+        <label>OpenAI API key<input id="aiKeyInput" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" /></label>
+        <button class="button primary" type="submit">키 연결하고 시작</button>
+        <small>AI는 하드웨어나 시스템 설정을 직접 변경하지 않습니다.</small>
+      </form>
+      <div id="aiChat" class="ai-chat hidden">
+        <div id="aiMessages" class="ai-messages" aria-live="polite"></div>
+        <form class="ai-form" onsubmit="sendAssistant(event)">
+          <input id="aiInput" maxlength="1200" placeholder="Pillume 사용법이나 복약 기록을 물어보세요" aria-label="AI 챗봇 질문" />
+          <button id="aiSend" type="submit" aria-label="질문 보내기">
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
+          </button>
+        </form>
+        <small class="ai-note">기록 변경은 확인 후 적용됩니다. <button type="button" onclick="forgetAssistantKey()">API 키 지우기</button></small>
+      </div>
+    </aside>
+
+    <div id="calendarOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="calendarTitle">
+      <div class="modal">
+        <div class="modal-head">
+          <div><span class="eyebrow">Medication Calendar</span><h2 id="calendarTitle">복약 캘린더</h2><p>날짜별 아침·점심·저녁 복용 기록을 확인하세요.</p></div>
+          <button class="close" type="button" onclick="closeCalendar()" aria-label="복약 캘린더 닫기"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="calendar-controls">
+          <button class="icon-button" type="button" onclick="changeMonth(-1)" aria-label="이전 달"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
+          <b id="calendarMonth"></b>
+          <button class="icon-button" type="button" onclick="changeMonth(1)" aria-label="다음 달"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
+        </div>
+        <div class="weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div id="calendar" class="calendar"></div>
+        <div class="legend">초록색은 복용 완료, 회색은 기록 없음 · 아/점/저 = 아침/점심/저녁</div>
+      </div>
+    </div>
+
+    <div id="cameraOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="cameraTitle">
+      <div class="modal large">
+        <div class="modal-head">
+          <div><span class="eyebrow">Teachable Machine</span><h2 id="cameraTitle">모션 인식 설정</h2><p>클래스 1은 무드등 켜기, 2는 끄기, 3은 긴급상황으로 전송합니다.</p></div>
+          <button class="close" type="button" onclick="closeCamera()" aria-label="모션 인식 닫기"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="hint"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>Chrome 또는 Edge에서 localhost로 열어야 BLE와 카메라가 정상 작동합니다.</span></div>
+        <div class="settings-grid">
+          <section class="settings-panel">
+            <h3>모델 설정</h3>
+            <label>Teachable Machine 모델 URL
+              <input id="modelUrl" placeholder="https://teachablemachine.withgoogle.com/models/..." />
+            </label>
+            <label>클래스 순서: 켜기, 끄기, 긴급상황
+              <input id="labels" value="1,2,3" />
+            </label>
+            <div class="actions">
+              <button class="button primary" type="button" onclick="saveSettings()"><span class="material-symbols-outlined" aria-hidden="true">save</span>설정 저장</button>
+              <button class="button" type="button" onclick="startCamera()"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span>인식 시작</button>
+              <button class="button" type="button" onclick="stopCamera()"><span class="material-symbols-outlined" aria-hidden="true">stop</span>종료</button>
+            </div>
+          </section>
+          <section class="settings-panel">
+            <h3>카메라 / 예측</h3>
+            <div id="webcam">카메라를 시작해 주세요.</div>
+            <div id="prediction">예측 대기</div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="lightOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="lightTitle">
+      <div class="modal">
+        <div class="modal-head">
+          <div><span class="eyebrow">NeoPixel</span><h2 id="lightTitle">무드등 제어</h2><p>WS2812B의 색상과 밝기를 설정하고 실시간으로 ESP_SZ에 전송하세요.</p></div>
+          <button class="close" type="button" onclick="closeLight()" aria-label="무드등 제어 닫기"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="light-control">
+          <div id="lightPreview" class="light-preview" aria-hidden="true"></div>
+          <div class="light-row">
+            <label>LED 색상<input id="lightColor" type="color" value="#deee9a" oninput="markLightDraft()" disabled /></label>
+            <label>밝기 <b id="brightnessValue" class="light-value">70%</b><input id="lightBrightness" type="range" min="1" max="100" value="70" oninput="markLightDraft()" disabled /></label>
+          </div>
+          <div class="actions">
+            <button id="applyLightButton" class="button primary" type="button" onclick="sendLightSettings()" disabled><span class="material-symbols-outlined" aria-hidden="true">palette</span>색상·밝기 적용</button>
+          </div>
+          <div class="manual-actions" aria-label="무드등 빠른 제어">
+            <button id="lightOnButton" class="button primary" type="button" onclick="sendMotion('ON','manual',1)" disabled><span class="material-symbols-outlined" aria-hidden="true">power</span>무드등 ON</button>
+            <button id="lightOffButton" class="button" type="button" onclick="sendMotion('OFF','manual',1)" disabled><span class="material-symbols-outlined" aria-hidden="true">power_settings_new</span>무드등 OFF</button>
+            <button id="emergencyButton" class="button ghost-danger" type="button" onclick="sendMotion('EMERGENCY','manual',1)" disabled><span class="material-symbols-outlined" aria-hidden="true">emergency_home</span>긴급상황</button>
+          </div>
+        </div>
+        <div class="notice"><span class="material-symbols-outlined" aria-hidden="true">info</span><span>서보가 회전할 때 네오픽셀은 파란색으로 한 칸씩 이동하며, 긴급상황에는 확인할 때까지 빨간색 점멸과 사이렌이 계속됩니다.</span></div>
+      </div>
+    </div>
+
+    <div id="testOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="testTitle">
+      <div class="modal test-modal">
+        <div class="modal-head">
+          <div><span class="eyebrow">Isolated Hardware Test</span><h2 id="testTitle">기능 테스트 · 튜토리얼</h2><p>BLE 연결 시 선택한 상황대로 실제 부품이 작동합니다.</p></div>
+          <button class="close" type="button" onclick="closeTestPanel()" aria-label="테스트 패널 닫기"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="test-safety">
+          <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
+          <span><b>격리 하드웨어 모드:</b> 서보·LED·부저·OLED는 실제 작동하지만 복약 기록과 서버 데이터는 저장하지 않습니다. 테스트 전 알약을 빼고 회전부에서 손을 치워 주세요.<br><b id="testHardwareStatus">BLE 미연결 · 화면 안내만 동작</b></span>
+        </div>
+        <div class="test-layout">
+          <section class="test-panel">
+            <h3>1. 가상 시간대 선택</h3>
+            <div class="test-choice-list">
+              <button class="test-choice selected" type="button" data-test-slot="morning" onclick="selectTestSlot('morning')"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span><span>아침<br><small>07:00–10:00</small></span></button>
+              <button class="test-choice" type="button" data-test-slot="lunch" onclick="selectTestSlot('lunch')"><span class="material-symbols-outlined" aria-hidden="true">sunny</span><span>점심<br><small>11:00–13:00</small></span></button>
+              <button class="test-choice" type="button" data-test-slot="evening" onclick="selectTestSlot('evening')"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span><span>저녁<br><small>15:00–17:00</small></span></button>
+            </div>
+            <div class="test-result">
+              <div class="test-result-head"><span>VIRTUAL CLOCK</span><b id="testClock">07:00</b></div>
+              <p id="testSlotSummary">아침 복약 시간 시작 상태입니다.</p>
+            </div>
+          </section>
+          <section class="test-panel">
+            <h3>2. 테스트할 상황 선택</h3>
+            <div class="test-scenario-grid">
+              <button class="test-scenario" type="button" onclick="runTestScenario('window')"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span><b>복약 시간 시작</b><small>시간대 진입, 부저·OLED 안내 원리</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('taken')"><span class="material-symbols-outlined" aria-hidden="true">task_alt</span><span><b>복용 완료</b><small>손 감지 후 기록과 상태 변화</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('reminder')"><span class="material-symbols-outlined" aria-hidden="true">notifications_active</span><span><b>마감 30분 전 미복용</b><small>반복 경고와 OLED 메시지</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('backlog')"><span class="material-symbols-outlined" aria-hidden="true">inventory</span><span><b>밀린 약 누적</b><small>이전 시간대 미복용분 동시 배출</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('light')"><span class="material-symbols-outlined" aria-hidden="true">lightbulb</span><span><b>무드등 ON/OFF</b><small>모션 클래스 1·2 동작 확인</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('refill')"><span class="material-symbols-outlined" aria-hidden="true">rotate_right</span><span><b>알약 채우기</b><small>55° → 110° → 165° → 0°</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('emergency')"><span class="material-symbols-outlined" aria-hidden="true">emergency_home</span><span><b>긴급상황</b><small>빨간 점멸·사이렌·확인 흐름</small></span></button>
+              <button class="test-scenario" type="button" onclick="runTestScenario('reset')"><span class="material-symbols-outlined" aria-hidden="true">restart_alt</span><span><b>선택 시간 초기화</b><small>현재 가상 시간의 기본 상태로 복귀</small></span></button>
+            </div>
+            <div class="test-result" aria-live="polite">
+              <div class="test-result-head"><span>WHAT HAPPENS</span><span class="test-demo-badge"><span class="material-symbols-outlined" aria-hidden="true">shield</span>기록 격리</span></div>
+              <p id="testExplanation">상황을 선택하면 어떤 센서·부품·화면이 작동하는지 단계별로 안내합니다.</p>
+              <ul id="testSteps"><li>BLE 연결 시 하드웨어가 작동하며 실제 기록은 변경되지 않습니다.</li></ul>
+            </div>
+          </section>
+        </div>
+        <div class="test-footer">
+          <button class="button" type="button" onclick="closeTestPanel()">패널만 닫기</button>
+          <button class="button primary" type="button" onclick="exitTestMode()">테스트 종료 · 복원</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="emergencyOverlay" class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="emergencyTitle">
+      <div class="modal emergency">
+        <div class="alarm"><span class="material-symbols-outlined" aria-hidden="true">warning</span></div>
+        <span class="eyebrow">Emergency Alert</span>
+        <h2 id="emergencyTitle">긴급 상황이 감지되었습니다</h2>
+        <p id="emergencyMessage">X 동작을 인식했습니다.</p>
+        <p>확인 버튼을 누를 때까지 빨간 경고등과 사이렌이 계속됩니다.</p>
+        <button class="button danger" type="button" onclick="closeEmergency()">확인했습니다</button>
+      </div>
+    </div>
+
+    <nav class="mobile-nav" aria-label="모바일 빠른 메뉴">
+      <a class="nav-item active" href="#top"><span><span class="material-symbols-outlined" aria-hidden="true">home</span>홈</span></a>
+      <button class="nav-item" type="button" onclick="openCalendar()"><span><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>기록</span></button>
+      <button class="nav-item" type="button" onclick="openCamera()"><span><span class="material-symbols-outlined" aria-hidden="true">motion_sensor_active</span>모션</span></button>
+      <button class="nav-item" type="button" onclick="openLight()"><span><span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>조명</span></button>
+    </nav>
+
+    <script>
+      const BLE_NAME="ESP_SZ",SERVICE="7c8e4001-9f8b-4f44-a18f-64a6f6a50101",COMMAND="7c8e4002-9f8b-4f44-a18f-64a6f6a50101",STATUS="7c8e4003-9f8b-4f44-a18f-64a6f6a50101",EVENT="7c8e4004-9f8b-4f44-a18f-64a6f6a50101";
+      const $=id=>document.getElementById(id),encoder=new TextEncoder(),decoder=new TextDecoder();
+      let commandChar=null,statusChar=null,device=null,model=null,webcam=null,raf=null;
+      let stableLabel="",stableCount=0,lastSentAt=0,calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+      let storedEvents=[],lightDraftDirty=false,latestStatus={},logsExpanded=false;
+      let testMode=false,testSnapshot=null,testSelectedSlot="morning",testRefillStep=0,testLiveStatusBuffer=null,testLiveEventsBuffer=[];
+      let assistantBusy=false,assistantApiKey="",assistantMessages=[{id:"welcome",role:"assistant",content:"안녕하세요. 복약 기록 누락, ESP_SZ 연결, 모션 모델 설정 등 Pillume 사용을 도와드릴게요."}];
+      try{storedEvents=JSON.parse(localStorage.getItem("pillume-medication-events")||"[]")}catch{storedEvents=[]}
+
+      function setConnected(on){$("connection").textContent=on?"ESP_SZ 연결됨":"BLE 연결 대기";$("connection").classList.toggle("online",on);$("connectButton").innerHTML=on?'<span class="material-symbols-outlined" aria-hidden="true">bluetooth_connected</span>연결됨':'<span class="material-symbols-outlined" aria-hidden="true">bluetooth</span>연결하기';for(const id of ["lightColor","lightBrightness","applyLightButton","lightOnButton","lightOffButton","emergencyButton"])$(id).disabled=!on;if(!on){$("refillButton").disabled=true;$("refillButton").textContent="ESP_SZ 연결 필요"}}
+      function sendHardwareTest(action,extra={}){
+        const status=$("testHardwareStatus");
+        if(!commandChar){if(status)status.textContent="BLE 미연결 · 화면 안내만 동작";return Promise.resolve(false)}
+        return commandChar.writeValue(encoder.encode(JSON.stringify({type:"test",action,slot:testSelectedSlot,testOnly:true,...extra}))).then(()=>{if(status)status.textContent="ESP_SZ 연결됨 · 실제 하드웨어 테스트 중";return true}).catch(error=>{if(status)status.textContent="BLE 전송 실패 · "+error.message;return false})
+      }
+      function write(payload){
+        if(testMode){
+          simulateTestCommand(payload);
+          if(payload.type==="motion")return sendHardwareTest("motion",{command:payload.command});
+          if(payload.type==="light")return sendHardwareTest("motion",{command:payload.on===false?"OFF":"ON"});
+          if(payload.type==="refill")return sendHardwareTest("refill");
+          if(payload.type==="emergency_ack")return sendHardwareTest("emergency_ack");
+          return Promise.resolve({testOnly:true})
+        }
+        if(!commandChar)throw new Error("ESP_SZ를 먼저 연결하세요.");
+        return commandChar.writeValue(encoder.encode(JSON.stringify(payload)))
+      }
+      function applyStatus(s){
+        latestStatus=s;$("light").textContent=s.neopixel?"ON":"OFF";$("pending").textContent=`${s.pendingDoses||0}회`;
+        setOverlay("emergencyOverlay",Boolean(s.emergency));
+        if(!lightDraftDirty){if(/^#[0-9a-f]{6}$/i.test(s.lightColor||""))$("lightColor").value=s.lightColor;if(s.lightBrightness!=null)$("lightBrightness").value=String(s.lightBrightness);updateLightPreview()}
+        renderTodayDoseStates();
+        $("refillButton").disabled=false;
+        if(!s.refillActive){$("refillStatus").textContent="55° · 110° · 165°에서 한 알씩 넣습니다.";$("refillButton").textContent="채우기 시작 · 55°로 이동"}
+        else{$("refillStatus").textContent=`${s.refillStep||0}번 칸 위치 · 약을 넣고 다시 눌러 주세요`;$("refillButton").textContent=s.refillStep===3?"채우기 완료 · 0°로 복귀":"다음 칸으로 이동"}
+      }
+      function parseStatus(view){const s=JSON.parse(decoder.decode(view));if(testMode){testLiveStatusBuffer=s;return}applyStatus(s)}
+      function saveDeviceEvent(event){
+        event.localReceivedAt=new Date().toISOString();storedEvents.unshift(event);storedEvents=storedEvents.slice(0,1000);
+        if(testMode)event.testOnly=true;else localStorage.setItem("pillume-medication-events",JSON.stringify(storedEvents));
+        renderLogs();renderCalendar();renderTodayDoseStates();
+      }
+      function addEvent(view){
+        const event=JSON.parse(decoder.decode(view));if(testMode){testLiveEventsBuffer.push(event);return}saveDeviceEvent(event);
+        if(event.type==="EMERGENCY"){$("emergencyMessage").textContent=event.message||"X 동작을 인식했습니다.";setOverlay("emergencyOverlay",true)}
+      }
+      async function connectBle(){
+        if(testMode)return alert("테스트 모드에서는 새 BLE 연결을 시작하지 않습니다. 테스트 종료 후 연결해 주세요.");
+        if(!navigator.bluetooth)return alert("Chrome/Edge의 HTTPS 또는 localhost에서 열어 주세요.");
+        try{
+          device=await navigator.bluetooth.requestDevice({filters:[{name:BLE_NAME}],optionalServices:[SERVICE]});device.addEventListener("gattserverdisconnected",()=>setConnected(false));
+          const server=await device.gatt.connect(),service=await server.getPrimaryService(SERVICE);commandChar=await service.getCharacteristic(COMMAND);statusChar=await service.getCharacteristic(STATUS);const eventChar=await service.getCharacteristic(EVENT);
+          statusChar.addEventListener("characteristicvaluechanged",e=>parseStatus(e.target.value));eventChar.addEventListener("characteristicvaluechanged",e=>addEvent(e.target.value));
+          await statusChar.startNotifications();await eventChar.startNotifications();setConnected(true);
+          await write({type:"time",epoch:Math.floor(Date.now()/1000),tzOffsetMinutes:-new Date().getTimezoneOffset()});parseStatus(await statusChar.readValue());
+        }catch(e){setConnected(false);if(e.name!=="NotFoundError")alert("ESP_SZ 연결 실패: "+e.message)}
+      }
+      function saveSettings(){if(testMode)return alert("테스트 모드에서는 실제 설정을 저장하지 않습니다.");localStorage.setItem("pillume-html-settings",JSON.stringify({modelUrl:$("modelUrl").value,labels:$("labels").value,mappingVersion:2}));alert("설정 저장 완료")}
+      function classNames(){const[on="1",off="2",emergency="3"]=$("labels").value.split(",").map(v=>v.trim());return{on,off,emergency}}
+      function normalizeLabel(value){return String(value).trim().toLowerCase().replace(/^(class|클래스)\s*/u,"")}
+      function commandFor(label){const n=classNames(),clean=normalizeLabel(label);return clean===normalizeLabel(n.on)?"ON":clean===normalizeLabel(n.off)?"OFF":clean===normalizeLabel(n.emergency)?"EMERGENCY":null}
+      async function sendMotion(command,label,confidence){try{await write({type:"motion",command,label,confidence})}catch(e){alert(e.message)}}
+      function updateLightPreview(){const color=$("lightColor").value,brightness=Number($("lightBrightness").value);$("brightnessValue").textContent=`${brightness}%`;$("lightPreview").style.setProperty("--light-color",color);$("lightPreview").style.setProperty("--light-strength",String(brightness/100))}
+      function markLightDraft(){lightDraftDirty=true;updateLightPreview()}
+      async function sendLightSettings(){try{await write({type:"light",color:$("lightColor").value,brightness:Number($("lightBrightness").value),on:true});lightDraftDirty=false;setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},250)}catch(e){alert(e.message)}}
+      async function sendRefill(){try{await write({type:"refill"});setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},1100)}catch(e){alert(e.message)}}
+      const TEST_SLOTS={
+        morning:{label:"아침",start:"07:00",reminder:"09:30",index:0},
+        lunch:{label:"점심",start:"11:00",reminder:"12:30",index:1},
+        evening:{label:"저녁",start:"15:00",reminder:"16:30",index:2}
+      };
+      function cloneData(value){return JSON.parse(JSON.stringify(value))}
+      function testIso(hhmm){return `${todayKey()}T${hhmm}:00+09:00`}
+      function setTestGuide(message,steps){$("testExplanation").textContent=message;$("testSteps").innerHTML=steps.map(step=>`<li>${escapeHtml(step)}</li>`).join("")}
+      function addTestEvent(type,message,slot=testSelectedSlot,doseCount=0,time=TEST_SLOTS[testSelectedSlot].start){saveDeviceEvent({id:`test-${Date.now()}-${Math.random()}`,deviceId:"pillume-test-sandbox",type,mealSlot:slot,doseCount,message:`[TEST] ${message}`,deviceTime:testIso(time)})}
+      function applyTestBase(slot){
+        const config=TEST_SLOTS[slot],taken={morning:false,lunch:false,evening:false};
+        storedEvents=[];testRefillStep=0;
+        latestStatus={online:true,deviceId:"pillume-test-sandbox",bleName:BLE_NAME,timeSynced:true,time:testIso(config.start),neopixel:Boolean(testSnapshot&&testSnapshot.latestStatus.neopixel),lightColor:testSnapshot&&testSnapshot.latestStatus.lightColor||$("lightColor").value,lightBrightness:testSnapshot&&testSnapshot.latestStatus.lightBrightness||Number($("lightBrightness").value),emergency:false,currentAngle:0,compartmentIndex:0,refillActive:false,refillStep:0,pendingDoses:config.index+1,activeSlot:slot,taken,testMode:true};
+        lightDraftDirty=false;applyStatus(latestStatus);renderLogs();renderCalendar();
+        $("testClock").textContent=config.start;$("testSlotSummary").textContent=`${config.label} 복약 시간 시작 상태 · 미복용 누적 ${config.index+1}회`;
+        document.querySelectorAll("[data-test-slot]").forEach(button=>button.classList.toggle("selected",button.dataset.testSlot===slot));
+      }
+      function selectTestSlot(slot){if(!TEST_SLOTS[slot])return;testSelectedSlot=slot;applyTestBase(slot);sendHardwareTest("set_time");setTestGuide(`${TEST_SLOTS[slot].label} 시간대로 이동했습니다. 이전 시간대 약을 먹지 않은 조건으로 누적 상태를 보여줍니다.`,["OLED가 선택한 시간대로 바뀝니다.","서버·실제 캘린더 기록은 변경되지 않습니다.","오른쪽에서 원하는 상황을 선택하세요."])}
+      function runTestScenario(type){
+        const config=TEST_SLOTS[testSelectedSlot],slot=testSelectedSlot;
+        if(type==="reset"){applyTestBase(slot);sendHardwareTest("reset");setTestGuide("선택한 시간대의 테스트 기본 상태로 돌아왔습니다.",["테스트 경보를 끕니다.","서보를 테스트 원점 0°로 이동합니다.","실제 복약 기록은 그대로 유지됩니다."]);return}
+        if(type==="window"){
+          applyTestBase(slot);addTestEvent("WINDOW_STARTED",`${config.label} 복약 시간 시작`,slot,0,config.start);
+          setTestGuide(`${config.start}, ${config.label} 복약 가능 시간이 시작된 상황입니다.`,["피에조가 약 3초간 울립니다.","OLED에 MEDICINE TIME과 해당 시간이 표시됩니다.","테스트 이벤트는 화면에만 표시됩니다."]);
+        }else if(type==="taken"){
+          applyTestBase(slot);latestStatus.taken[slot]=true;latestStatus.pendingDoses=Math.max(0,config.index);applyStatus(latestStatus);addTestEvent("DOSE_TAKEN",`${config.label} 복용 완료`,slot,1,config.start);
+          setTestGuide(`IR 센서에 손이 1초간 감지되어 ${config.label} 약을 가져간 상황입니다.`,["실제 모드에서는 누적 회수만큼 서보가 이동합니다.","이동 중 네오픽셀이 파란색으로 한 칸씩 진행합니다.","복용 완료가 캘린더와 최근 활동에 기록됩니다."]);
+        }else if(type==="reminder"){
+          applyTestBase(slot);latestStatus.time=testIso(config.reminder);applyStatus(latestStatus);$("testClock").textContent=config.reminder;addTestEvent("MISSED_REMINDER",`${config.label} 약 미복용 경고`,slot,0,config.reminder);
+          setTestGuide(`${config.reminder}, 마감 30분 전까지 복용 기록이 없는 상황입니다.`,["실제 모드에서는 마감까지 주기적으로 피에조 경고가 납니다.","OLED에 TAKE YOUR MEDICINE이 표시됩니다.","웹에는 미복용 경고 이벤트가 표시됩니다."]);
+        }else if(type==="backlog"){
+          applyTestBase(slot);const count=config.index+1;addTestEvent("BACKLOG_PREVIEW",`${count}회분 누적 배출 예정`,slot,count,config.start);
+          setTestGuide(`${config.label} 시간에 손을 감지하면 밀린 약을 포함해 총 ${count}회분이 배출되는 조건입니다.`,[`서보가 ${count}번 순차 이동합니다.`,`예상 위치: ${count===1?"55°":count===2?"55° → 110°":"55° → 110° → 165°"}.`,"각 이동마다 파란 네오픽셀 체이스가 실행됩니다."]);
+        }else if(type==="light"){
+          latestStatus.neopixel=!latestStatus.neopixel;applyStatus(latestStatus);addTestEvent(latestStatus.neopixel?"NEOPIXEL_ON":"NEOPIXEL_OFF",`모션 클래스 ${latestStatus.neopixel?"1 · 무드등 ON":"2 · 무드등 OFF"}`,"",0,config.start);
+          setTestGuide(`무드등이 ${latestStatus.neopixel?"켜진":"꺼진"} 상태로 전환되었습니다.`,["클래스 1은 ON, 클래스 2는 OFF로 해석됩니다.","BLE 연결 시 WS2812B도 실제로 바뀝니다.","테스트 종료 시 기존 무드등 상태로 복원됩니다."]);
+        }else if(type==="refill"){
+          testRefillStep=(testRefillStep+1)%4;latestStatus.refillActive=testRefillStep>0;latestStatus.refillStep=testRefillStep;latestStatus.currentAngle=[0,55,110,165][testRefillStep];applyStatus(latestStatus);addTestEvent("REFILL_TEST",testRefillStep?`${testRefillStep}번 칸 · ${latestStatus.currentAngle}°`:"채우기 완료 · 0°","",0,config.start);
+          setTestGuide(testRefillStep?`${testRefillStep}번 칸 위치 ${latestStatus.currentAngle}°로 이동합니다.`:"3칸 채우기를 마치고 0°로 복귀합니다.",["버튼을 반복해서 55° → 110° → 165° → 0° 순서를 확인할 수 있습니다.","BLE 연결 시 실제 서보가 움직입니다.","테스트 중에는 IR 자동 배출이 잠깁니다."]);
+        }else if(type==="emergency"){
+          latestStatus.emergency=true;applyStatus(latestStatus);$("emergencyMessage").textContent="[TEST] 클래스 3 긴급상황 시뮬레이션입니다.";addTestEvent("EMERGENCY","클래스 3 긴급상황 감지","",0,config.start);
+          setTestGuide("클래스 3 또는 X 동작이 인식된 긴급상황입니다.",["빨간 네오픽셀이 빠르게 점멸합니다.","피에조 사이렌은 확인 버튼을 누를 때까지 유지됩니다.","서버 긴급 알림은 전송하지 않습니다."]);
+        }
+        sendHardwareTest(type);
+      }
+      function simulateTestCommand(payload){
+        if(!payload||typeof payload!=="object")return;
+        if(payload.type==="motion"){
+          const command=String(payload.command||"").toUpperCase();
+          if(command==="EMERGENCY")runTestScenario("emergency");
+          else if(command==="ON"||command==="OFF"){latestStatus.neopixel=command==="ON";applyStatus(latestStatus);addTestEvent(`NEOPIXEL_${command}`,`수동 무드등 ${command}`)}
+        }else if(payload.type==="light"){
+          latestStatus.neopixel=payload.on!==false;latestStatus.lightColor=payload.color;latestStatus.lightBrightness=payload.brightness;applyStatus(latestStatus);addTestEvent("LIGHT_UPDATED","색상·밝기 테스트 적용");
+        }else if(payload.type==="refill")runTestScenario("refill");
+        else if(payload.type==="emergency_ack"){latestStatus.emergency=false;applyStatus(latestStatus);setOverlay("emergencyOverlay",false);addTestEvent("EMERGENCY_CLEARED","긴급상황 확인 완료","",0)}
+      }
+      async function startCamera(){
+        const base=$("modelUrl").value.trim().replace(/\/+$/,"");if(!/^https?:\/\//.test(base))return alert("모델 URL을 입력하세요.");stopCamera();
+        model=await tmImage.load(`${base}/model.json`,`${base}/metadata.json`);webcam=new tmImage.Webcam(420,315,true);await webcam.setup();await webcam.play();$("webcam").replaceChildren(webcam.canvas);loop();
+      }
+      async function loop(){
+        if(!webcam||!model)return;webcam.update();const predictions=await model.predict(webcam.canvas),best=predictions.sort((a,b)=>b.probability-a.probability)[0];$("prediction").textContent=`${best.className} · ${Math.round(best.probability*100)}%`;const command=commandFor(best.className);
+        if(best.probability>=.85&&command){if(stableLabel===best.className)stableCount++;else{stableLabel=best.className;stableCount=1}if(stableCount>=5&&Date.now()-lastSentAt>2500){stableCount=0;lastSentAt=Date.now();await sendMotion(command,best.className,best.probability)}}else stableCount=0;raf=requestAnimationFrame(loop);
+      }
+      function stopCamera(){if(raf)cancelAnimationFrame(raf);if(webcam){webcam.pause();webcam.stop()}model=webcam=raf=null;$("webcam").textContent="카메라를 시작해 주세요.";$("prediction").textContent="예측 대기"}
+      function eventDate(event){const raw=event.deviceTime||event.localReceivedAt||"";return /^\d{4}-\d{2}-\d{2}/.test(raw)?raw.slice(0,10):""}
+      function dateKey(y,m,d){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+      function medicationMap(){const map={};for(const e of storedEvents){if(e.type!=="DOSE_TAKEN"||!e.mealSlot)continue;const key=eventDate(e);if(!key)continue;(map[key]||(map[key]=new Set())).add(e.mealSlot)}return map}
+      function todayKey(){const d=new Date();return dateKey(d.getFullYear(),d.getMonth(),d.getDate())}
+      function renderTodayDoseStates(){const recorded=medicationMap()[todayKey()]||new Set();for(const slot of ["morning","lunch","evening"]){const el=$(slot+"State"),done=Boolean(latestStatus.taken&&latestStatus.taken[slot])||recorded.has(slot);el.textContent=done?"복용 완료":latestStatus.activeSlot===slot?"복용 가능":"대기";el.classList.toggle("taken",done)}}
+      function renderCalendar(){
+        const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),first=new Date(y,m,1).getDay(),count=new Date(y,m+1,0).getDate(),history=medicationMap(),today=new Date(),todayKey=dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+        $("calendarTitle").textContent=`${y}년 ${m+1}월 복약 기록`;$("calendarMonth").textContent=`${m+1}월`;
+        let html="";for(let i=0;i<first;i++)html+='<span class="blank"></span>';
+        for(let d=1;d<=count;d++){const key=dateKey(y,m,d),slots=history[key]||new Set();html+=`<div class="day ${key===todayKey?"today":""}"><b>${d}</b><div class="marks"><i class="${slots.has("morning")?"taken":""}">아</i><i class="${slots.has("lunch")?"taken":""}">점</i><i class="${slots.has("evening")?"taken":""}">저</i></div></div>`}$("calendar").innerHTML=html;
+      }
+      function renderLogs(){
+        const events=logsExpanded?storedEvents:storedEvents.slice(0,3),hasMore=storedEvents.length>3;
+        $("logs").innerHTML=events.length?events.map(e=>`<li><b>${escapeHtml(e.type||"EVENT")}</b><small>${escapeHtml(e.message||"")} · ${escapeHtml(e.deviceTime||e.localReceivedAt||"")}</small></li>`).join(""):"<li>기록이 없습니다.</li>";
+        $("logsMoreWrap").hidden=!hasMore;
+        $("logsMoreButton").setAttribute("aria-expanded",String(logsExpanded));
+        $("logsMoreLabel").textContent=logsExpanded?"접기":`더보기 (${storedEvents.length-3})`;
+      }
+      function toggleLogs(){logsExpanded=!logsExpanded;renderLogs()}
+      function assistantId(){return `${Date.now()}-${Math.random().toString(36).slice(2)}`}
+      function toggleAssistant(force){const open=force===undefined?!$("aiPanel").classList.contains("open"):force;$("aiPanel").classList.toggle("open",open);$("aiLauncher").innerHTML=open?'<span class="material-symbols-outlined" aria-hidden="true">close</span><span>닫기</span>':'<span class="material-symbols-outlined" aria-hidden="true">smart_toy</span><span>AI 챗봇</span>';if(open)setTimeout(()=>$(assistantApiKey?"aiInput":"aiKeyInput").focus(),0)}
+      function activateAssistantKey(event){event.preventDefault();const key=$("aiKeyInput").value.trim();if(!key)return;assistantApiKey=key;$("aiKeyInput").value="";$("aiSetup").classList.add("hidden");$("aiChat").classList.remove("hidden");renderAssistant();setTimeout(()=>$("aiInput").focus(),0)}
+      function forgetAssistantKey(){assistantApiKey="";$("aiChat").classList.add("hidden");$("aiSetup").classList.remove("hidden");$("aiKeyInput").value="";setTimeout(()=>$("aiKeyInput").focus(),0)}
+      function assistantEndpoint(){return location.protocol==="file:"?"http://localhost:3000/api/assistant":"/api/assistant"}
+      function renderAssistant(){
+        $("aiMessages").innerHTML=assistantMessages.map(m=>{let action="";if(m.action){const state=m.actionState||"pending";action=`<div class="ai-action ${state}"><b>${escapeHtml(m.action.confirmationText)}</b>${state==="pending"?`<div class="actions"><button class="primary" onclick="confirmAssistantDose('${m.id}')">확인하고 기록</button><button onclick="cancelAssistantDose('${m.id}')">취소</button></div>`:state==="done"?"<small>✓ 기록 완료</small>":"<small>취소됨</small>"}</div>`}return `<div class="ai-message ${m.role}">${escapeHtml(m.content)}${action}</div>`}).join("")+(assistantBusy?'<div class="ai-message assistant">답변을 준비하고 있어요…</div>':"");
+        $("aiMessages").scrollTop=$("aiMessages").scrollHeight;
+      }
+      async function sendAssistant(event){
+        event.preventDefault();const question=$("aiInput").value.trim();if(!question||assistantBusy)return;
+        const history=assistantMessages.filter(m=>m.id!=="welcome").slice(-10).map(({role,content})=>({role,content}));assistantMessages.push({id:assistantId(),role:"user",content:question});$("aiInput").value="";assistantBusy=true;renderAssistant();
+        if(testMode){assistantMessages.push({id:assistantId(),role:"assistant",content:"현재는 격리된 TEST MODE입니다. 실제 AI 서버 요청은 보내지 않았습니다. 테스트 종료 후 질문해 주세요."});assistantBusy=false;renderAssistant();return}
+        try{
+          const recentEvents=storedEvents.slice(0,8).map(e=>({type:e.type,mealSlot:e.mealSlot,message:e.message,time:e.deviceTime||e.localReceivedAt}));
+          const response=await fetch(assistantEndpoint(),{method:"POST",headers:{"Content-Type":"application/json","X-OpenAI-Key":assistantApiKey},body:JSON.stringify({message:question,history,localDate:todayKey(),context:{connected:Boolean(commandChar),timeSynced:latestStatus.timeSynced,currentTime:latestStatus.time,neopixel:latestStatus.neopixel,lightColor:$("lightColor").value,lightBrightness:Number($("lightBrightness").value),currentAngle:latestStatus.currentAngle,pendingDoses:latestStatus.pendingDoses,activeSlot:latestStatus.activeSlot,taken:latestStatus.taken,modelUrlConfigured:/^https?:\/\//.test($("modelUrl").value.trim()),recentEvents}})});
+          const data=await response.json();if(!response.ok||!data.reply)throw new Error(data.error||"AI 응답을 받지 못했습니다.");
+          const message={id:assistantId(),role:"assistant",content:data.reply};if(data.actionType==="record_manual_dose"&&["morning","lunch","evening"].includes(data.mealSlot)&&/^\d{4}-\d{2}-\d{2}$/.test(data.date)){message.action={mealSlot:data.mealSlot,date:data.date,confirmationText:data.confirmationText||`${data.date} 복약 완료로 기록`};message.actionState="pending"}assistantMessages.push(message);
+        }catch(error){assistantMessages.push({id:assistantId(),role:"assistant",content:error.message||"AI 챗봇에 연결하지 못했습니다. 파일로 열었다면 먼저 npm run dev로 AI 서버를 실행해 주세요."})}
+        finally{assistantBusy=false;renderAssistant()}
+      }
+      function confirmAssistantDose(id){const message=assistantMessages.find(m=>m.id===id),action=message&&message.action;if(!action)return;const duplicate=storedEvents.some(e=>e.type==="DOSE_TAKEN"&&e.mealSlot===action.mealSlot&&eventDate(e)===action.date);if(!duplicate)saveDeviceEvent({id:Date.now(),deviceId:"pillume-ai-assistant",type:"DOSE_TAKEN",mealSlot:action.mealSlot,doseCount:1,message:"AI 대화에서 사용자가 확인한 수동 복약 완료 기록",deviceTime:`${action.date}T12:00:00+09:00`});message.actionState="done";renderAssistant()}
+      function cancelAssistantDose(id){const message=assistantMessages.find(m=>m.id===id);if(message)message.actionState="cancelled";renderAssistant()}
+      function setOverlay(id,open){$(id).classList.toggle("open",open);document.body.classList.toggle("modal-open",Boolean(document.querySelector(".overlay.open")))}
+      function openCalendar(){setOverlay("calendarOverlay",true);renderCalendar()}function closeCalendar(){setOverlay("calendarOverlay",false)}
+      function openCamera(){setOverlay("cameraOverlay",true);setTimeout(()=>$("modelUrl").focus(),0)}function closeCamera(){stopCamera();setOverlay("cameraOverlay",false)}
+      function openLight(){setOverlay("lightOverlay",true);updateLightPreview()}function closeLight(){setOverlay("lightOverlay",false)}
+      function changeMonth(delta){calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+delta,1);renderCalendar()}
+      async function openTestMode(){
+        if(testMode){setOverlay("testOverlay",true);return}
+        if(latestStatus.emergency)return alert("실제 긴급상황을 먼저 확인한 후 테스트 모드를 시작해 주세요.");
+        testSnapshot={latestStatus:cloneData(latestStatus),storedEvents:cloneData(storedEvents),logsExpanded,lightText:$("light").textContent,pendingText:$("pending").textContent,lightDraftDirty,lightColor:$("lightColor").value,lightBrightness:$("lightBrightness").value,emergencyMessage:$("emergencyMessage").textContent,refillDisabled:$("refillButton").disabled,refillText:$("refillButton").textContent,controlDisabled:Object.fromEntries(["lightColor","lightBrightness","applyLightButton","lightOnButton","lightOffButton","emergencyButton"].map(id=>[id,$(id).disabled])),openOverlays:[...document.querySelectorAll(".overlay.open")].map(element=>element.id),aiOpen:$("aiPanel").classList.contains("open")};
+        testLiveStatusBuffer=null;testLiveEventsBuffer=[];testMode=true;document.body.classList.add("test-active");$("testModeButton").classList.add("active");$("testModeButton").setAttribute("aria-label","테스트 모드 패널 열기");
+        document.querySelectorAll(".overlay.open").forEach(element=>element.classList.remove("open"));if(testSnapshot.aiOpen)toggleAssistant(false);
+        testSelectedSlot="morning";applyTestBase("morning");setTestGuide("아침 시간대의 기본 상태입니다. 오른쪽에서 테스트할 기능을 선택하세요.",["BLE 연결 시 테스트 전용 명령으로 실제 부품이 작동합니다.","복약 이벤트는 임시 메모리에만 표시됩니다.","종료 시 시작 직전 화면과 하드웨어 상태를 복원합니다."]);setOverlay("testOverlay",true);await sendHardwareTest("enter");await sendHardwareTest("set_time")
+      }
+      function closeTestPanel(){setOverlay("testOverlay",false)}
+      async function exitTestMode(){
+        if(!testMode||!testSnapshot)return;
+        await sendHardwareTest("exit");
+        const snapshot=testSnapshot,bufferedStatus=testLiveStatusBuffer,bufferedEvents=testLiveEventsBuffer.slice();
+        setOverlay("testOverlay",false);setOverlay("emergencyOverlay",false);testMode=false;testSnapshot=null;testLiveStatusBuffer=null;testLiveEventsBuffer=[];document.body.classList.remove("test-active");$("testModeButton").classList.remove("active");$("testModeButton").setAttribute("aria-label","테스트 모드 열기");
+        storedEvents=snapshot.storedEvents;logsExpanded=snapshot.logsExpanded;lightDraftDirty=snapshot.lightDraftDirty;$("lightColor").value=snapshot.lightColor;$("lightBrightness").value=snapshot.lightBrightness;$("emergencyMessage").textContent=snapshot.emergencyMessage;applyStatus(bufferedStatus||snapshot.latestStatus);if(!bufferedStatus){$("light").textContent=snapshot.lightText;$("pending").textContent=snapshot.pendingText}$("refillButton").disabled=snapshot.refillDisabled;$("refillButton").textContent=snapshot.refillText;for(const [id,disabled] of Object.entries(snapshot.controlDisabled))$(id).disabled=disabled;renderLogs();renderCalendar();renderTodayDoseStates();updateLightPreview();
+        for(const event of bufferedEvents)saveDeviceEvent(event);
+        if(snapshot.aiOpen)toggleAssistant(true);for(const id of snapshot.openOverlays){if(id!=="testOverlay"&&id!=="emergencyOverlay")setOverlay(id,true)}
+      }
+      async function closeEmergency(){try{await write({type:"emergency_ack"});setOverlay("emergencyOverlay",false);if(!testMode)setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},250)}catch(e){alert("경보를 끄려면 ESP_SZ 연결이 필요합니다: "+e.message)}}
+      function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+      try{const s=JSON.parse(localStorage.getItem("pillume-html-settings"));if(s){$("modelUrl").value=s.modelUrl||"";$("labels").value=s.mappingVersion===2&&s.labels?s.labels:"1,2,3"}}catch{}
+      for(const [id,close] of [["calendarOverlay",closeCalendar],["cameraOverlay",closeCamera],["lightOverlay",closeLight],["testOverlay",closeTestPanel]]){$(id).addEventListener("click",event=>{if(event.target===$(id))close()})}
+      document.addEventListener("keydown",event=>{if(event.key!=="Escape")return;if($("emergencyOverlay").classList.contains("open"))return;else if($("testOverlay").classList.contains("open"))closeTestPanel();else if($("aiPanel").classList.contains("open"))toggleAssistant(false);else if($("lightOverlay").classList.contains("open"))closeLight();else if($("cameraOverlay").classList.contains("open"))closeCamera();else if($("calendarOverlay").classList.contains("open"))closeCalendar()});
+      updateLightPreview();renderLogs();renderCalendar();renderTodayDoseStates();renderAssistant();
+    </script>
+  </body>
+</html>

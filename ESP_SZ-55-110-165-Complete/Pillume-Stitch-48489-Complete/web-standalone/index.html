@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pillume — ESP_SZ 복약 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+    <style>
+      :root{--ink:#17221b;--muted:#6d786f;--line:#dfe6df;--paper:#f8faf5;--card:#fff;--green:#315b3b;--sage:#e8f1e5;--red:#c94d42;--blue:#1677d2}
+      *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#e7f3ca 0,transparent 28rem),var(--paper);color:var(--ink);font:14px/1.55 system-ui,sans-serif}
+      button,input{font:inherit}button{cursor:pointer}.shell{width:min(1100px,calc(100% - 28px));margin:auto}
+      header{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+      .brand h1{margin:0;font-size:22px;letter-spacing:-.05em}.brand small{color:var(--muted)}
+      .header-actions,.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:11px;background:white;color:var(--ink);font-weight:700}
+      button.primary{border-color:var(--green);background:var(--green);color:white}.calendar-button{width:42px;padding:0;font-size:22px}
+      .badge{padding:8px 12px;border-radius:999px;background:#eee;color:var(--muted);font-size:12px;font-weight:700}.badge.online{background:var(--sage);color:var(--green)}
+      .hero{padding:42px 0 28px}.hero h2{margin:0;font-size:clamp(35px,6vw,57px);line-height:1.13;letter-spacing:-.06em}.hero h2 em{color:var(--green);font-style:normal}
+      .hero p{color:var(--muted)}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;padding-bottom:30px}
+      section{padding:22px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.9);box-shadow:0 15px 35px rgba(35,60,41,.06)}
+      h3{margin:0 0 15px;font-size:17px}.wide{grid-column:1/-1}.schedule{display:grid;gap:9px}
+      .dose{display:grid;grid-template-columns:1fr auto;align-items:center;padding:13px;border-radius:13px;background:#f5f8f3}.dose b,.dose small{display:block}.dose small{color:var(--muted)}
+      .dose-state{color:var(--muted);font-size:12px}.dose-state.taken{color:var(--green);font-weight:800}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:15px}.stat{padding:12px;border-radius:12px;background:#f5f8f3}
+      .stat span,.stat b{display:block}.stat span{color:var(--muted);font-size:10px}.stat b{margin-top:5px;font-size:18px}
+      .refill{margin-top:14px;padding:14px;border:1px solid #cfe0ed;border-radius:13px;background:#f3f8fd}.refill b,.refill small{display:block}.refill small{margin:3px 0 10px;color:var(--muted)}.refill button{width:100%;border-color:#397cae;background:#397cae;color:white}.refill button:disabled{background:#dce3e7;color:#879095}
+      .light-control{margin:12px 0;padding:14px;border:1px solid var(--line);border-radius:13px;background:#f7faf5}.light-row{display:grid;grid-template-columns:78px 1fr;gap:12px}.light-control label{margin:0}.light-control input[type=color]{padding:2px}.light-control input[type=range]{padding:0;accent-color:var(--green)}.light-preview{height:34px;margin-bottom:11px;border-radius:10px;background:var(--light-color,#deee9a);opacity:var(--light-strength,.7);box-shadow:0 0 16px var(--light-color,#deee9a)}.light-value{float:right;color:var(--green)}.light-control button:disabled,.light-control input:disabled{cursor:not-allowed;opacity:.45}
+      label{display:block;margin:11px 0;color:var(--muted);font-size:11px;font-weight:700}input{width:100%;height:42px;margin-top:5px;padding:0 10px;border:1px solid var(--line);border-radius:9px}
+      #webcam{min-height:240px;display:grid;place-items:center;border-radius:14px;background:#edf1eb;color:var(--muted);overflow:hidden}#webcam canvas{width:100%;height:100%;object-fit:cover}
+      #prediction{margin-top:9px;color:var(--green);font-weight:800}#logs{margin:0;padding:0;list-style:none}#logs li{padding:10px 0;border-top:1px solid var(--line)}
+      #logs small{display:block;color:var(--muted)}.hint{padding:10px 12px;border-radius:10px;background:#fff7dd;color:#755f16;font-size:11px}
+      .overlay{position:fixed;z-index:30;inset:0;padding:18px;display:none;place-items:center;background:rgba(18,29,21,.48);backdrop-filter:blur(8px)}.overlay.open{display:grid}
+      .modal{width:min(720px,100%);max-height:calc(100vh - 36px);overflow:auto;padding:24px;border-radius:22px;background:white}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+      .modal-head h3{font-size:21px}.close{width:38px;padding:0;border-radius:50%;font-size:21px}.calendar-controls{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;margin:4px 0 14px;text-align:center}
+      .calendar-controls button{width:36px;padding:0;border-radius:50%;font-size:23px}.calendar-controls button:last-child{justify-self:end}
+      .weekdays,.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.weekdays{margin-bottom:6px;color:var(--muted);font-size:10px;font-weight:800;text-align:center}
+      .day,.blank{min-height:72px}.day{padding:7px;border:1px solid var(--line);border-radius:11px;background:#fafcf8}.day.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+      .marks{display:flex;gap:3px;margin-top:7px}.marks i{width:19px;height:19px;display:grid;place-items:center;border-radius:50%;background:#edf0ec;color:#99a099;font-size:7px;font-style:normal;font-weight:800}.marks i.taken{background:var(--green);color:white}
+      .legend{margin-top:14px;color:var(--muted);font-size:10px}.emergency{width:min(410px,100%);text-align:center}.emergency .alarm{width:65px;height:65px;margin:auto;display:grid;place-items:center;border-radius:50%;background:#fde8e6;color:var(--red);font-size:32px;font-weight:900}.danger{border-color:var(--red);background:var(--red);color:white}
+      .ai-launcher{position:fixed;z-index:25;right:22px;bottom:22px;height:52px;padding:0 17px;border:0;border-radius:26px;background:var(--green);color:white;box-shadow:0 15px 38px rgba(31,66,40,.3)}.ai-panel{position:fixed;z-index:24;right:22px;bottom:84px;width:min(390px,calc(100% - 28px));max-height:min(640px,calc(100vh - 106px));display:none;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:21px;background:white;box-shadow:0 24px 70px rgba(25,48,31,.22)}.ai-panel.open{display:flex}.ai-head{padding:14px 15px;display:flex;align-items:center;justify-content:space-between;background:#f1f7ec;border-bottom:1px solid var(--line)}.ai-head b,.ai-head small{display:block}.ai-head small{color:var(--muted);font-size:9px}.ai-head button{width:32px;min-height:32px;padding:0;border:0;border-radius:50%;font-size:19px}.ai-setup{padding:27px 22px;text-align:center}.ai-setup h3{margin:0}.ai-setup p{color:var(--muted);font-size:10px}.ai-setup label{text-align:left}.ai-setup button{width:100%;margin-top:8px;border:0;background:var(--green);color:white}.ai-setup small{margin-top:11px;display:block;color:#8c948e;font-size:8px}.ai-chat{min-height:0;display:flex;flex:1;flex-direction:column}.ai-chat.hidden,.ai-setup.hidden{display:none}.ai-messages{min-height:220px;padding:14px;display:flex;flex:1;flex-direction:column;gap:9px;overflow-y:auto;background:#fbfcf9}.ai-message{max-width:88%;padding:10px 12px;border-radius:14px 14px 14px 4px;background:white;box-shadow:0 2px 10px rgba(35,55,40,.06);font-size:11px;white-space:pre-wrap}.ai-message.user{align-self:flex-end;border-radius:14px 14px 4px 14px;background:var(--green);color:white}.ai-action{margin-top:8px;padding:10px;border:1px solid #cfe0cd;border-radius:11px;background:#f2f8ee;color:var(--ink)}.ai-action b,.ai-action small{display:block}.ai-action b{margin-bottom:8px}.ai-action .actions button{min-height:32px;padding:0 9px;font-size:9px}.ai-action.done small{color:var(--green);font-weight:800}.ai-form{padding:10px;display:grid;grid-template-columns:1fr 39px;gap:7px;border-top:1px solid var(--line)}.ai-form input{height:40px;margin:0}.ai-form button{width:39px;min-height:39px;padding:0;border:0;background:var(--green);color:white}.ai-note{padding:0 12px 10px;color:#899189;font-size:8px;text-align:center}.ai-note button{min-height:auto;padding:0;border:0;background:transparent;color:var(--green);font-size:inherit;text-decoration:underline}
+      @media(max-width:760px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:28px}.day,.blank{min-height:59px}.marks{gap:1px}.marks i{width:16px;height:16px;font-size:6px}.ai-launcher{right:12px;bottom:12px}.ai-panel{right:7px;bottom:70px;width:calc(100% - 14px);max-height:calc(100vh - 80px)}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div class="brand"><h1>Pillume</h1><small>ESP_SZ smart care</small></div>
+        <div class="header-actions">
+          <button class="calendar-button" onclick="openCalendar()" aria-label="복약 캘린더">▦</button>
+          <span id="connection" class="badge">BLE 연결 대기</span>
+          <button class="primary" onclick="connectBle()">ESP_SZ 연결</button>
+        </div>
+      </header>
+
+      <div class="hero">
+        <h2>오늘의 약,<br><em>잊지 않게.</em></h2>
+        <p>아침·점심·저녁 복약과 모션 무드등을 한 화면에서 확인하세요.</p>
+      </div>
+
+      <div class="grid">
+        <section>
+          <h3>오늘의 복약</h3>
+          <div class="schedule">
+            <div class="dose"><div><b>아침 약</b><small>07:00–10:00</small></div><span class="dose-state" id="morningState">대기</span></div>
+            <div class="dose"><div><b>점심 약</b><small>11:00–13:00</small></div><span class="dose-state" id="lunchState">대기</span></div>
+            <div class="dose"><div><b>저녁 약</b><small>15:00–17:00</small></div><span class="dose-state" id="eveningState">대기</span></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><span>무드등</span><b id="light">—</b></div>
+            <div class="stat"><span>대기 약</span><b id="pending">—</b></div>
+            <div class="stat"><span>현재 각도</span><b id="angle">—</b></div>
+            <div class="stat"><span>감지 방식</span><b>1초 유지</b></div>
+          </div>
+          <div class="refill">
+            <b>알약 채우기 · 총 3칸</b>
+            <small id="refillStatus">55° · 110° · 165°에서 한 알씩 넣습니다.</small>
+            <button id="refillButton" onclick="sendRefill()" disabled>ESP_SZ 연결 필요</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>모델 설정</h3>
+          <p class="hint">Chrome/Edge에서 HTTPS 또는 localhost로 열어야 BLE와 카메라가 작동합니다.</p>
+          <label>Teachable Machine 모델 URL<input id="modelUrl" placeholder="https://teachablemachine.withgoogle.com/models/..." /></label>
+          <label>클래스 이름: 켜기, 끄기, 긴급상황<input id="labels" value="1,2,3" /></label>
+          <div class="actions">
+            <button class="primary" onclick="saveSettings()">설정 저장</button>
+            <button onclick="startCamera()">모션 시작</button>
+            <button onclick="stopCamera()">종료</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>카메라 / 예측</h3>
+          <div id="webcam">카메라를 시작해 주세요.</div>
+          <div id="prediction">예측 대기</div>
+        </section>
+
+        <section>
+          <h3>수동 기능 시험</h3>
+          <div class="light-control">
+            <div id="lightPreview" class="light-preview" aria-hidden="true"></div>
+            <div class="light-row">
+              <label>LED 색상<input id="lightColor" type="color" value="#deee9a" oninput="markLightDraft()" disabled></label>
+              <label>밝기 <b id="brightnessValue" class="light-value">70%</b><input id="lightBrightness" type="range" min="1" max="100" value="70" oninput="markLightDraft()" disabled></label>
+            </div>
+            <div class="actions">
+              <button id="applyLightButton" class="primary" onclick="sendLightSettings()" disabled>색상·밝기 적용</button>
+              <button id="lightOffButton" onclick="sendMotion('OFF','manual',1)" disabled>끄기</button>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" onclick="sendMotion('ON','manual',1)">무드등 ON</button>
+            <button onclick="sendMotion('OFF','manual',1)">OFF</button>
+            <button class="danger" onclick="sendMotion('EMERGENCY','manual',1)">긴급 사이렌</button>
+          </div>
+          <p>서보 회전 시 파란 LED가 한 칸씩 이동하고, 긴급 시 빨간 점멸과 사이렌이 10초간 작동합니다.</p>
+        </section>
+
+        <section class="wide">
+          <h3>최근 기록</h3>
+          <ul id="logs"><li>BLE 연결 후 새 기록이 표시됩니다.</li></ul>
+        </section>
+      </div>
+    </main>
+
+    <button id="aiLauncher" class="ai-launcher" onclick="toggleAssistant()">✦ AI 도우미</button>
+    <aside id="aiPanel" class="ai-panel" role="dialog" aria-label="Pillume AI 도우미">
+      <div class="ai-head"><div><b>✦ Pillume AI</b><small>질문 안내 · 기록 보정</small></div><button onclick="toggleAssistant(false)" aria-label="AI 도우미 닫기">×</button></div>
+      <form id="aiSetup" class="ai-setup" onsubmit="activateAssistantKey(event)">
+        <h3>OpenAI API 키 연결</h3>
+        <p>새 API 키를 입력해 주세요. 이 탭의 메모리에만 유지되고 파일이나 로컬 저장소에는 저장되지 않습니다.</p>
+        <label>OpenAI API key<input id="aiKeyInput" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false"></label>
+        <button type="submit">키 연결하고 시작</button>
+        <small>공개된 키는 반드시 폐기하세요. 배포 서비스는 서버 환경변수 방식을 권장합니다.</small>
+      </form>
+      <div id="aiChat" class="ai-chat hidden">
+        <div id="aiMessages" class="ai-messages" aria-live="polite"></div>
+        <form class="ai-form" onsubmit="sendAssistant(event)">
+          <input id="aiInput" maxlength="1200" placeholder="Pillume에 대해 물어보세요" aria-label="AI 도우미 질문">
+          <button id="aiSend" type="submit" aria-label="질문 보내기">↑</button>
+        </form>
+        <small class="ai-note">AI는 장치를 직접 제어하지 않으며, 기록 변경은 확인 후 적용됩니다. <button onclick="forgetAssistantKey()">키 지우기</button></small>
+      </div>
+    </aside>
+
+    <div id="calendarOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal-head"><div><small>MEDICATION CALENDAR</small><h3 id="calendarTitle">복약 캘린더</h3></div><button class="close" onclick="closeCalendar()">×</button></div>
+        <div class="calendar-controls"><button onclick="changeMonth(-1)">‹</button><b id="calendarMonth"></b><button onclick="changeMonth(1)">›</button></div>
+        <div class="weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div id="calendar" class="calendar"></div>
+        <div class="legend">● 초록색: 복용 완료　○ 회색: 기록 없음　/　아·점·저 = 아침·점심·저녁</div>
+      </div>
+    </div>
+
+    <div id="emergencyOverlay" class="overlay" role="alertdialog" aria-modal="true">
+      <div class="modal emergency"><div class="alarm">!</div><h3>긴급 동작 감지</h3><p id="emergencyMessage">X 동작을 인식했습니다.</p><p>확인 버튼을 누를 때까지 빨간 경고등과 사이렌이 계속됩니다.</p><button class="danger" onclick="closeEmergency()">확인했습니다</button></div>
+    </div>
+
+    <script>
+      const BLE_NAME="ESP_SZ",SERVICE="7c8e4001-9f8b-4f44-a18f-64a6f6a50101",COMMAND="7c8e4002-9f8b-4f44-a18f-64a6f6a50101",STATUS="7c8e4003-9f8b-4f44-a18f-64a6f6a50101",EVENT="7c8e4004-9f8b-4f44-a18f-64a6f6a50101";
+      const $=id=>document.getElementById(id),encoder=new TextEncoder(),decoder=new TextDecoder();
+      let commandChar=null,statusChar=null,device=null,model=null,webcam=null,raf=null;
+      let stableLabel="",stableCount=0,lastSentAt=0,calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+      let storedEvents=[],lightDraftDirty=false,latestStatus={};
+      let assistantBusy=false,assistantApiKey="",assistantMessages=[{id:"welcome",role:"assistant",content:"안녕하세요. 복약 기록 누락, ESP_SZ 연결, 모션 모델 설정 등 Pillume 사용을 도와드릴게요."}];
+      try{storedEvents=JSON.parse(localStorage.getItem("pillume-medication-events")||"[]")}catch{storedEvents=[]}
+
+      function setConnected(on){$("connection").textContent=on?"ESP_SZ 연결됨":"BLE 연결 대기";$("connection").classList.toggle("online",on);for(const id of ["lightColor","lightBrightness","applyLightButton","lightOffButton"])$(id).disabled=!on;if(!on){$("refillButton").disabled=true;$("refillButton").textContent="ESP_SZ 연결 필요"}}
+      function write(payload){if(!commandChar)throw new Error("ESP_SZ를 먼저 연결하세요.");return commandChar.writeValue(encoder.encode(JSON.stringify(payload)))}
+      function parseStatus(view){
+        const s=JSON.parse(decoder.decode(view));latestStatus=s;$("light").textContent=s.neopixel?"ON":"OFF";$("pending").textContent=`${s.pendingDoses||0}회`;$("angle").textContent=`${s.currentAngle||0}°`;
+        $("emergencyOverlay").classList.toggle("open",Boolean(s.emergency));
+        if(!lightDraftDirty){if(/^#[0-9a-f]{6}$/i.test(s.lightColor||""))$("lightColor").value=s.lightColor;if(s.lightBrightness!=null)$("lightBrightness").value=String(s.lightBrightness);updateLightPreview()}
+        renderTodayDoseStates();
+        $("refillButton").disabled=false;
+        if(!s.refillActive){$("refillStatus").textContent="55° · 110° · 165°에서 한 알씩 넣습니다.";$("refillButton").textContent="채우기 시작 · 55°로 이동"}
+        else{$("refillStatus").textContent=`${s.refillStep||0}번 칸 위치 · 약을 넣고 다시 눌러 주세요`;$("refillButton").textContent=s.refillStep===3?"채우기 완료 · 0°로 복귀":"다음 칸으로 이동"}
+      }
+      function saveDeviceEvent(event){
+        event.localReceivedAt=new Date().toISOString();storedEvents.unshift(event);storedEvents=storedEvents.slice(0,1000);
+        localStorage.setItem("pillume-medication-events",JSON.stringify(storedEvents));renderLogs();renderCalendar();renderTodayDoseStates();
+      }
+      function addEvent(view){
+        const event=JSON.parse(decoder.decode(view));saveDeviceEvent(event);
+        if(event.type==="EMERGENCY"){$("emergencyMessage").textContent=event.message||"X 동작을 인식했습니다.";$("emergencyOverlay").classList.add("open")}
+      }
+      async function connectBle(){
+        if(!navigator.bluetooth)return alert("Chrome/Edge의 HTTPS 또는 localhost에서 열어 주세요.");
+        try{
+          device=await navigator.bluetooth.requestDevice({filters:[{name:BLE_NAME}],optionalServices:[SERVICE]});device.addEventListener("gattserverdisconnected",()=>setConnected(false));
+          const server=await device.gatt.connect(),service=await server.getPrimaryService(SERVICE);commandChar=await service.getCharacteristic(COMMAND);statusChar=await service.getCharacteristic(STATUS);const eventChar=await service.getCharacteristic(EVENT);
+          statusChar.addEventListener("characteristicvaluechanged",e=>parseStatus(e.target.value));eventChar.addEventListener("characteristicvaluechanged",e=>addEvent(e.target.value));
+          await statusChar.startNotifications();await eventChar.startNotifications();setConnected(true);
+          await write({type:"time",epoch:Math.floor(Date.now()/1000),tzOffsetMinutes:-new Date().getTimezoneOffset()});parseStatus(await statusChar.readValue());
+        }catch(e){setConnected(false);if(e.name!=="NotFoundError")alert("ESP_SZ 연결 실패: "+e.message)}
+      }
+      function saveSettings(){localStorage.setItem("pillume-html-settings",JSON.stringify({modelUrl:$("modelUrl").value,labels:$("labels").value,mappingVersion:2}));alert("설정 저장 완료")}
+      function classNames(){const[on="1",off="2",emergency="3"]=$("labels").value.split(",").map(v=>v.trim());return{on,off,emergency}}
+      function normalizeLabel(value){return String(value).trim().toLowerCase().replace(/^(class|클래스)\s*/u,"")}
+      function commandFor(label){const n=classNames(),clean=normalizeLabel(label);return clean===normalizeLabel(n.on)?"ON":clean===normalizeLabel(n.off)?"OFF":clean===normalizeLabel(n.emergency)?"EMERGENCY":null}
+      async function sendMotion(command,label,confidence){try{await write({type:"motion",command,label,confidence})}catch(e){alert(e.message)}}
+      function updateLightPreview(){const color=$("lightColor").value,brightness=Number($("lightBrightness").value);$("brightnessValue").textContent=`${brightness}%`;$("lightPreview").style.setProperty("--light-color",color);$("lightPreview").style.setProperty("--light-strength",String(brightness/100))}
+      function markLightDraft(){lightDraftDirty=true;updateLightPreview()}
+      async function sendLightSettings(){try{await write({type:"light",color:$("lightColor").value,brightness:Number($("lightBrightness").value),on:true});lightDraftDirty=false;setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},250)}catch(e){alert(e.message)}}
+      async function sendRefill(){try{await write({type:"refill"});setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},1100)}catch(e){alert(e.message)}}
+      async function startCamera(){
+        const base=$("modelUrl").value.trim().replace(/\/+$/,"");if(!/^https?:\/\//.test(base))return alert("모델 URL을 입력하세요.");stopCamera();
+        model=await tmImage.load(`${base}/model.json`,`${base}/metadata.json`);webcam=new tmImage.Webcam(420,315,true);await webcam.setup();await webcam.play();$("webcam").replaceChildren(webcam.canvas);loop();
+      }
+      async function loop(){
+        if(!webcam||!model)return;webcam.update();const predictions=await model.predict(webcam.canvas),best=predictions.sort((a,b)=>b.probability-a.probability)[0];$("prediction").textContent=`${best.className} · ${Math.round(best.probability*100)}%`;const command=commandFor(best.className);
+        if(best.probability>=.85&&command){if(stableLabel===best.className)stableCount++;else{stableLabel=best.className;stableCount=1}if(stableCount>=5&&Date.now()-lastSentAt>2500){stableCount=0;lastSentAt=Date.now();await sendMotion(command,best.className,best.probability)}}else stableCount=0;raf=requestAnimationFrame(loop);
+      }
+      function stopCamera(){if(raf)cancelAnimationFrame(raf);if(webcam){webcam.pause();webcam.stop()}model=webcam=raf=null;$("webcam").textContent="카메라를 시작해 주세요.";$("prediction").textContent="예측 대기"}
+      function eventDate(event){const raw=event.deviceTime||event.localReceivedAt||"";return /^\d{4}-\d{2}-\d{2}/.test(raw)?raw.slice(0,10):""}
+      function dateKey(y,m,d){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+      function medicationMap(){const map={};for(const e of storedEvents){if(e.type!=="DOSE_TAKEN"||!e.mealSlot)continue;const key=eventDate(e);if(!key)continue;(map[key]||(map[key]=new Set())).add(e.mealSlot)}return map}
+      function todayKey(){const d=new Date();return dateKey(d.getFullYear(),d.getMonth(),d.getDate())}
+      function renderTodayDoseStates(){const recorded=medicationMap()[todayKey()]||new Set();for(const slot of ["morning","lunch","evening"]){const el=$(slot+"State"),done=Boolean(latestStatus.taken&&latestStatus.taken[slot])||recorded.has(slot);el.textContent=done?"복용 완료":latestStatus.activeSlot===slot?"복용 가능":"대기";el.classList.toggle("taken",done)}}
+      function renderCalendar(){
+        const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),first=new Date(y,m,1).getDay(),count=new Date(y,m+1,0).getDate(),history=medicationMap(),today=new Date(),todayKey=dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+        $("calendarTitle").textContent=`${y}년 ${m+1}월 복약 기록`;$("calendarMonth").textContent=`${m+1}월`;
+        let html="";for(let i=0;i<first;i++)html+='<span class="blank"></span>';
+        for(let d=1;d<=count;d++){const key=dateKey(y,m,d),slots=history[key]||new Set();html+=`<div class="day ${key===todayKey?"today":""}"><b>${d}</b><div class="marks"><i class="${slots.has("morning")?"taken":""}">아</i><i class="${slots.has("lunch")?"taken":""}">점</i><i class="${slots.has("evening")?"taken":""}">저</i></div></div>`}$("calendar").innerHTML=html;
+      }
+      function renderLogs(){const events=storedEvents.slice(0,12);$("logs").innerHTML=events.length?events.map(e=>`<li><b>${escapeHtml(e.type||"EVENT")}</b><small>${escapeHtml(e.message||"")} · ${escapeHtml(e.deviceTime||e.localReceivedAt||"")}</small></li>`).join(""):"<li>기록이 없습니다.</li>"}
+      function assistantId(){return `${Date.now()}-${Math.random().toString(36).slice(2)}`}
+      function toggleAssistant(force){const open=force===undefined?!$("aiPanel").classList.contains("open"):force;$("aiPanel").classList.toggle("open",open);$("aiLauncher").textContent=open?"×":"✦ AI 도우미";if(open)setTimeout(()=>$(assistantApiKey?"aiInput":"aiKeyInput").focus(),0)}
+      function activateAssistantKey(event){event.preventDefault();const key=$("aiKeyInput").value.trim();if(!key)return;assistantApiKey=key;$("aiKeyInput").value="";$("aiSetup").classList.add("hidden");$("aiChat").classList.remove("hidden");renderAssistant();setTimeout(()=>$("aiInput").focus(),0)}
+      function forgetAssistantKey(){assistantApiKey="";$("aiChat").classList.add("hidden");$("aiSetup").classList.remove("hidden");$("aiKeyInput").value="";setTimeout(()=>$("aiKeyInput").focus(),0)}
+      function assistantEndpoint(){return location.protocol==="file:"?"http://localhost:3000/api/assistant":"/api/assistant"}
+      function renderAssistant(){
+        $("aiMessages").innerHTML=assistantMessages.map(m=>{let action="";if(m.action){const state=m.actionState||"pending";action=`<div class="ai-action ${state}"><b>${escapeHtml(m.action.confirmationText)}</b>${state==="pending"?`<div class="actions"><button class="primary" onclick="confirmAssistantDose('${m.id}')">확인하고 기록</button><button onclick="cancelAssistantDose('${m.id}')">취소</button></div>`:state==="done"?"<small>✓ 기록 완료</small>":"<small>취소됨</small>"}</div>`}return `<div class="ai-message ${m.role}">${escapeHtml(m.content)}${action}</div>`}).join("")+(assistantBusy?'<div class="ai-message assistant">답변을 준비하고 있어요…</div>':"");
+        $("aiMessages").scrollTop=$("aiMessages").scrollHeight;
+      }
+      async function sendAssistant(event){
+        event.preventDefault();const question=$("aiInput").value.trim();if(!question||assistantBusy)return;
+        const history=assistantMessages.filter(m=>m.id!=="welcome").slice(-10).map(({role,content})=>({role,content}));assistantMessages.push({id:assistantId(),role:"user",content:question});$("aiInput").value="";assistantBusy=true;renderAssistant();
+        try{
+          const recentEvents=storedEvents.slice(0,8).map(e=>({type:e.type,mealSlot:e.mealSlot,message:e.message,time:e.deviceTime||e.localReceivedAt}));
+          const response=await fetch(assistantEndpoint(),{method:"POST",headers:{"Content-Type":"application/json","X-OpenAI-Key":assistantApiKey},body:JSON.stringify({message:question,history,localDate:todayKey(),context:{connected:Boolean(commandChar),timeSynced:latestStatus.timeSynced,currentTime:latestStatus.time,neopixel:latestStatus.neopixel,lightColor:$("lightColor").value,lightBrightness:Number($("lightBrightness").value),currentAngle:latestStatus.currentAngle,pendingDoses:latestStatus.pendingDoses,activeSlot:latestStatus.activeSlot,taken:latestStatus.taken,modelUrlConfigured:/^https?:\/\//.test($("modelUrl").value.trim()),recentEvents}})});
+          const data=await response.json();if(!response.ok||!data.reply)throw new Error(data.error||"AI 응답을 받지 못했습니다.");
+          const message={id:assistantId(),role:"assistant",content:data.reply};if(data.actionType==="record_manual_dose"&&["morning","lunch","evening"].includes(data.mealSlot)&&/^\d{4}-\d{2}-\d{2}$/.test(data.date)){message.action={mealSlot:data.mealSlot,date:data.date,confirmationText:data.confirmationText||`${data.date} 복약 완료로 기록`};message.actionState="pending"}assistantMessages.push(message);
+        }catch(error){assistantMessages.push({id:assistantId(),role:"assistant",content:error.message||"AI 도우미에 연결하지 못했습니다. 파일로 열었다면 먼저 npm run dev로 AI 서버를 실행해 주세요."})}
+        finally{assistantBusy=false;renderAssistant()}
+      }
+      function confirmAssistantDose(id){const message=assistantMessages.find(m=>m.id===id),action=message&&message.action;if(!action)return;const duplicate=storedEvents.some(e=>e.type==="DOSE_TAKEN"&&e.mealSlot===action.mealSlot&&eventDate(e)===action.date);if(!duplicate)saveDeviceEvent({id:Date.now(),deviceId:"pillume-ai-assistant",type:"DOSE_TAKEN",mealSlot:action.mealSlot,doseCount:1,message:"AI 대화에서 사용자가 확인한 수동 복약 완료 기록",deviceTime:`${action.date}T12:00:00+09:00`});message.actionState="done";renderAssistant()}
+      function cancelAssistantDose(id){const message=assistantMessages.find(m=>m.id===id);if(message)message.actionState="cancelled";renderAssistant()}
+      function openCalendar(){$("calendarOverlay").classList.add("open");renderCalendar()}function closeCalendar(){$("calendarOverlay").classList.remove("open")}function changeMonth(delta){calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+delta,1);renderCalendar()}async function closeEmergency(){try{await write({type:"emergency_ack"});$("emergencyOverlay").classList.remove("open");setTimeout(async()=>{if(statusChar)parseStatus(await statusChar.readValue())},250)}catch(e){alert("경보를 끄려면 ESP_SZ 연결이 필요합니다: "+e.message)}}
+      function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+      try{const s=JSON.parse(localStorage.getItem("pillume-html-settings"));if(s){$("modelUrl").value=s.modelUrl||"";$("labels").value=s.mappingVersion===2&&s.labels?s.labels:"1,2,3"}}catch{}
+      updateLightPreview();renderLogs();renderCalendar();renderTodayDoseStates();renderAssistant();
+    </script>
+  </body>
+</html>

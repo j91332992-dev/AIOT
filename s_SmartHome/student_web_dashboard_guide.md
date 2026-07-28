@@ -140,7 +140,7 @@ graph TD
    
    # 5. 내 로컬 저장소와 방금 만든 원격 GitHub 저장소 연결
    # (아래 주소의 [GitHub-계정명] 부분을 실제 본인 아이디로 변경하세요)
-   git remote add origin https://github.com/[GitHub-계정명]/my-smart-home.git
+   git remote add origin https://github.com/hpo200222-rgb/AIoT---SMarT-HoME.git
    
    # 6. 원격 저장소의 main 브랜치로 코드 업로드
    git push -u origin main
