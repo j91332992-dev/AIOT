@@ -780,31 +780,20 @@ def status_payload():
         pending = pending_dose_count(minute_of_day)
 
     return {
-        "online": True,
-        "deviceId": DEVICE_ID,
-        "bleName": BLE_DEVICE_NAME,
-        "testModeSupported": True,
-        "testModePolicy": "isolated-hardware-test",
-        "testMode": test_mode,
-        "testSlot": test_slot,
-        "testAction": test_action,
-        "timeSynced": time_synchronized,
-        "time": local_iso_time(),
-        "neopixel": neopixel_on,
-        "lightColor": "#%02X%02X%02X" % neopixel_color,
-        "lightBrightness": neopixel_brightness,
-        "emergency": emergency_until is not None,
-        "currentAngle": current_servo_angle,
-        "compartmentIndex": compartment_index,
-        "refillActive": refill_active,
-        "refillStep": refill_step,
-        "pendingDoses": pending,
-        "activeSlot": MEALS[active][0] if active >= 0 else "",
-        "taken": {
-            "morning": bool(taken_mask & 0x01),
-            "lunch": bool(taken_mask & 0x02),
-            "evening": bool(taken_mask & 0x04),
-        },
+        "ts": time_synchronized,
+        "t": local_iso_time(),
+        "np": neopixel_on,
+        "lc": "#%02X%02X%02X" % neopixel_color,
+        "lb": neopixel_brightness,
+        "em": emergency_until is not None,
+        "ca": current_servo_angle,
+        "ci": compartment_index,
+        "ra": refill_active,
+        "rs": refill_step,
+        "pd": pending,
+        "as": MEALS[active][0] if active >= 0 else "",
+        "tk": taken_mask,
+        "tm": test_mode
     }
 
 
